@@ -1,8 +1,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import sys
-import os
+from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link
 
 # Set page config
 st.set_page_config(
@@ -65,9 +64,10 @@ st.sidebar.markdown("<h2 style='color:#38BDF8; margin-bottom:0;'>DeepSequence-T2
 st.sidebar.markdown("<p style='color:#64748B; font-size:0.85rem; margin-top:0;'>Contextual Batsman Vulnerability Engine</p>", unsafe_allow_html=True)
 st.sidebar.divider()
 
-# Selected player (mock list for wireframe/skeleton)
-batsman_list = ["Virat Kohli", "Jos Buttler", "Suryakumar Yadav", "Babar Azam", "Rohit Sharma"]
-selected_batsman = st.sidebar.selectbox("Target Batsman Profile", batsman_list)
+# Fetch dynamic batsman list from backend API
+batsman_list = get_all_batsmen()
+default_idx = batsman_list.index("AJ Finch") if "AJ Finch" in batsman_list else 0
+selected_batsman = st.sidebar.selectbox("Target Batsman Profile", batsman_list, index=default_idx)
 
 st.sidebar.markdown("### Match Context Filters")
 bowler_hand = st.sidebar.radio("Bowler Delivery Hand", ["All", "Right-Arm Only", "Left-Arm Only"])
@@ -76,8 +76,12 @@ match_phase = st.sidebar.multiselect("Match Phase Segment", ["Powerplay (0-6)", 
 st.sidebar.divider()
 st.sidebar.caption("CSE299.13 Junior Design Project proposal UI Wireframe skeleton.")
 
+# Get Cricinfo link
+cricinfo_link = get_player_cricinfo_link(selected_batsman)
+link_html = f" <a href='{cricinfo_link}' target='_blank' style='font-size: 1.2rem; text-decoration: none; color: #38BDF8;'>[ESPNCricinfo 🔗]</a>" if cricinfo_link else ""
+
 # Main Dashboard Container
-st.markdown(f"# Tactical Analysis Profile: {selected_batsman}")
+st.markdown(f"# Tactical Analysis Profile: {selected_batsman}{link_html}", unsafe_allow_html=True)
 st.markdown("<p style='color:#94A3B8;'>Real-time sequence sequence-based analytics for short-format cricket matches.</p>", unsafe_allow_html=True)
 
 tab1, tab2, tab3, tab4 = st.tabs([
@@ -90,21 +94,25 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # --- TAB 1: BATSMAN PROFILE ---
 with tab1:
     st.markdown("### Contextual Metrics Aggregates")
+    
+    # Fetch real stats via backend utils
+    total_runs, balls_faced, strike_rate, times_out = get_batsman_kpis(selected_batsman)
+
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.markdown('<div class="kpi-card"><div class="kpi-value">1,405</div><div class="kpi-label">Total Runs</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-value">{total_runs}</div><div class="kpi-label">Total Runs</div></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown('<div class="kpi-card"><div class="kpi-value">982</div><div class="kpi-label">Balls Faced</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-value">{balls_faced}</div><div class="kpi-label">Balls Faced</div></div>', unsafe_allow_html=True)
     with col3:
-        st.markdown('<div class="kpi-card"><div class="kpi-value">143.08</div><div class="kpi-label">Strike Rate</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-value">{strike_rate}</div><div class="kpi-label">Strike Rate</div></div>', unsafe_allow_html=True)
     with col4:
-        st.markdown('<div class="kpi-card"><div class="kpi-value">34</div><div class="kpi-label">Times Out</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-card"><div class="kpi-value">{times_out}</div><div class="kpi-label">Times Out</div></div>', unsafe_allow_html=True)
 
     st.markdown("### Match Phase & Bowling Splits")
     col_chart1, col_chart2 = st.columns(2)
     with col_chart1:
         st.markdown("#### Strike Rate by Match Phase")
-        # Mock chart
+        # Mock chart for now until we build Phase logic
         df_phase = pd.DataFrame({
             "Phase": ["Powerplay (0-6)", "Middle (7-15)", "Death (16-20)"],
             "Strike Rate": [128.5, 138.2, 172.4]
@@ -128,7 +136,6 @@ with tab2:
     commentary_input = st.text_area("Ball Commentary String", value=sample_text, height=100)
     
     if st.button("Parse Commentary Features", type="primary"):
-        # Mock regex extraction logic for skeleton demo
         st.success("Regex Parsing Complete!")
         col_res1, col_res2, col_res3 = st.columns(3)
         with col_res1:
@@ -143,7 +150,6 @@ with tab3:
     st.markdown("### Rolling Sequence Vulnerability Simulator")
     st.markdown("Build a sequence of deliveries faced by the batsman to predict the next-ball error probability using the LSTM model.")
     
-    # Render a small mock grid of balls
     st.markdown("#### Rolling Sequence Inputs (Last 6 Deliveries)")
     col_s1, col_s2, col_s3, col_s4, col_s5, col_s6 = st.columns(6)
     with col_s1:
@@ -166,7 +172,6 @@ with tab3:
         st.selectbox("Ball 6 Length", ["Yorker", "Full", "Slot", "Good Length", "Short"], key="s6_len")
 
     if st.button("Predict Next-Ball Vulnerability", type="primary"):
-        # Mock calculation: if there are many dots (0 runs), increase risk
         runs = [st.session_state.get(f"s{i}") for i in range(1, 7)]
         dot_count = sum(1 for r in runs if r == 0)
         base_risk = 0.05 + (dot_count * 0.12)
@@ -191,5 +196,4 @@ with tab4:
         st.markdown("#### PDF Strategy Export")
         st.write("Click below to compile and download the official PDF cheat sheet containing visual strategy guidelines.")
         
-        # In a real app this downloads the reportlab pdf
         st.button("Compile & Download PDF Report", type="secondary")
