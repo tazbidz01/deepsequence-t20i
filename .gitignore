@@ -1,0 +1,19 @@
+# Python gitignore
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+
+# Data and Database Files
+data/raw/*
+data/processed/*.db
+data/processed/*.sqlite
+*.pdf
+*.docx
+
+# OS metadata
+.DS_Store
+Thumbs.db
