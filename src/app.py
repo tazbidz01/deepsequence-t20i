@@ -1,7 +1,16 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+import sys
+import os
+import torch
+
+# Add the project root to sys.path so we can import from src
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link
+from src.features import SequencePreprocessor
+from src.model import get_model
 
 # Set page config
 st.set_page_config(
@@ -145,40 +154,47 @@ with tab2:
         with col_res3:
             st.metric("Extracted Shot Intent", "Drive", help="Regex match: 'attempts a drive'")
 
-# --- TAB 3: LIVE SEQUENCE SIMULATOR ---
+# --- TAB 3: LIVE SEQUENCE SIMULATOR (PyTorch Integration) ---
 with tab3:
-    st.markdown("### Rolling Sequence Vulnerability Simulator")
-    st.markdown("Build a sequence of deliveries faced by the batsman to predict the next-ball error probability using the LSTM model.")
+    st.markdown("### PyTorch LSTM Dynamic Sequence Simulator")
+    st.markdown("Build a dynamic sequence of deliveries faced by the batsman to predict the next-ball error probability using our PyTorch LSTM model.")
     
-    st.markdown("#### Rolling Sequence Inputs (Last 6 Deliveries)")
-    col_s1, col_s2, col_s3, col_s4, col_s5, col_s6 = st.columns(6)
-    with col_s1:
-        st.selectbox("Ball 1 Run", [0, 1, 2, 4, 6], key="s1")
-        st.selectbox("Ball 1 Length", ["Yorker", "Full", "Slot", "Good Length", "Short"], key="s1_len")
-    with col_s2:
-        st.selectbox("Ball 2 Run", [0, 1, 2, 4, 6], key="s2")
-        st.selectbox("Ball 2 Length", ["Yorker", "Full", "Slot", "Good Length", "Short"], key="s2_len")
-    with col_s3:
-        st.selectbox("Ball 3 Run", [0, 1, 2, 4, 6], key="s3")
-        st.selectbox("Ball 3 Length", ["Yorker", "Full", "Slot", "Good Length", "Short"], key="s3_len")
-    with col_s4:
-        st.selectbox("Ball 4 Run", [0, 1, 2, 4, 6], index=1, key="s4")
-        st.selectbox("Ball 4 Length", ["Yorker", "Full", "Slot", "Good Length", "Short"], key="s4_len")
-    with col_s5:
-        st.selectbox("Ball 5 Run", [0, 1, 2, 4, 6], index=1, key="s5")
-        st.selectbox("Ball 5 Length", ["Yorker", "Full", "Slot", "Good Length", "Short"], key="s5_len")
-    with col_s6:
-        st.selectbox("Ball 6 Run", [0, 1, 2, 4, 6], index=3, key="s6")
-        st.selectbox("Ball 6 Length", ["Yorker", "Full", "Slot", "Good Length", "Short"], key="s6_len")
+    # Dynamic LSTM sequence length selector
+    seq_length = st.slider("LSTM Sequence Window (Number of past deliveries)", min_value=3, max_value=12, value=6)
+    
+    st.markdown(f"#### Rolling Sequence Inputs (Last {seq_length} Deliveries)")
+    
+    # Generate dynamic columns
+    cols = st.columns(seq_length)
+    sequence_data = []
+    
+    for i in range(seq_length):
+        with cols[i]:
+            run = st.selectbox(f"Ball {i+1} Run", [0, 1, 2, 4, 6], key=f"d_run_{i}")
+            length = st.selectbox(f"Ball {i+1} Length", ["Yorker", "Full", "Slot", "Good Length", "Short"], key=f"d_len_{i}")
+            sequence_data.append({'run': run, 'length': length})
 
-    if st.button("Predict Next-Ball Vulnerability", type="primary"):
-        runs = [st.session_state.get(f"s{i}") for i in range(1, 7)]
-        dot_count = sum(1 for r in runs if r == 0)
-        base_risk = 0.05 + (dot_count * 0.12)
+    if st.button("Predict PyTorch Vulnerability", type="primary"):
+        # 1. Preprocess the sequence into a tensor
+        preprocessor = SequencePreprocessor()
+        tensor_input = preprocessor.preprocess_sequence(sequence_data)
         
-        st.markdown("#### Sequence Prediction Result")
-        st.progress(float(min(base_risk, 1.0)))
-        st.metric("Vulnerability Risk Score", f"{min(base_risk * 100, 100.0):.1f}%", help="Probability of batsman getting out or committing an error on the upcoming ball.")
+        # 2. Load the LSTM model
+        model = get_model()
+        
+        # 3. Run PyTorch inference
+        with torch.no_grad():
+            prediction_tensor = model(tensor_input)
+            risk_score = prediction_tensor.item()
+        
+        st.markdown("#### Neural Network Sequence Prediction")
+        st.progress(float(min(risk_score, 1.0)))
+        
+        st.metric("LSTM Vulnerability Risk Score", f"{risk_score * 100:.2f}%", 
+                  help="Probability output directly from the PyTorch Sigmoid layer.")
+        
+        with st.expander("View Raw PyTorch Tensor Output"):
+            st.code(f"Input Shape: {tensor_input.shape}\\nOutput Tensor: {prediction_tensor}\\nItem Value: {risk_score}")
 
 # --- TAB 4: STRATEGIC PLAN-OF-ATTACK ---
 with tab4:
