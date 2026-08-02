@@ -48,3 +48,20 @@ def get_player_cricinfo_link(player_name):
         if pd.notna(cricinfo_id):
             return f"https://www.espncricinfo.com/ci/content/player/{int(float(cricinfo_id))}.html"
     return None
+
+def log_model_training(version, loss, filepath):
+    try:
+        from datetime import datetime
+        date_trained = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO model_registry (version, loss, filepath, date_trained)
+            VALUES (?, ?, ?, ?)
+        ''', (version, loss, filepath, date_trained))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Failed to log model training: {e}")
+        return False

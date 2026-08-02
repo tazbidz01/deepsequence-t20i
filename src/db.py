@@ -45,13 +45,24 @@ def init_db():
         )
     ''')
     
-    # Players registry table
+    # Create players table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS players (
             cricsheet_id TEXT PRIMARY KEY,
             name TEXT,
             cricinfo_id TEXT,
             cricbuzz_id TEXT
+        )
+    ''')
+
+    # Create model registry table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS model_registry (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            version TEXT,
+            loss REAL,
+            filepath TEXT,
+            date_trained TEXT
         )
     ''')
     

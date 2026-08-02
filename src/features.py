@@ -1,6 +1,11 @@
-import torch
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
+
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except (ImportError, OSError):
+    TORCH_AVAILABLE = False
 
 class SequencePreprocessor:
     def __init__(self):
@@ -14,7 +19,7 @@ class SequencePreprocessor:
         """
         Takes a list of dictionaries, e.g.:
         [{'run': 1, 'length': 'Good Length'}, ...]
-        Returns a torch Tensor of shape (1, seq_length, feature_size)
+        Returns a torch Tensor (or numpy array if PyTorch is broken)
         """
         features = []
         for ball in sequence_data:
@@ -29,6 +34,11 @@ class SequencePreprocessor:
             ball_features = np.concatenate(([norm_run], encoded_length))
             features.append(ball_features)
             
-        # Convert to tensor: shape (batch=1, seq_len, features)
-        tensor = torch.tensor(np.array(features), dtype=torch.float32).unsqueeze(0)
-        return tensor
+        np_features = np.array(features, dtype=np.float32)
+        # Add batch dimension
+        np_features = np.expand_dims(np_features, axis=0)
+        
+        if TORCH_AVAILABLE:
+            return torch.tensor(np_features)
+        else:
+            return np_features

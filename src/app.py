@@ -3,7 +3,12 @@ import numpy as np
 import pandas as pd
 import sys
 import os
-import torch
+
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except (ImportError, OSError):
+    TORCH_AVAILABLE = False
 
 # Add the project root to sys.path so we can import from src
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -182,8 +187,12 @@ with tab3:
         # 2. Load the LSTM model
         model = get_model()
         
-        # 3. Run PyTorch inference
-        with torch.no_grad():
+        # 3. Run inference (PyTorch or NumPy fallback)
+        if TORCH_AVAILABLE:
+            with torch.no_grad():
+                prediction_tensor = model(tensor_input)
+                risk_score = prediction_tensor.item()
+        else:
             prediction_tensor = model(tensor_input)
             risk_score = prediction_tensor.item()
         
