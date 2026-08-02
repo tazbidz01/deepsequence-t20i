@@ -13,7 +13,7 @@ except (ImportError, OSError):
 # Add the project root to sys.path so we can import from src
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link
+from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry
 from src.features import SequencePreprocessor
 from src.model import get_model
 
@@ -99,10 +99,10 @@ st.markdown(f"# Tactical Analysis Profile: {selected_batsman}{link_html}", unsaf
 st.markdown("<p style='color:#94A3B8;'>Real-time sequence sequence-based analytics for short-format cricket matches.</p>", unsafe_allow_html=True)
 
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📊 Batsman Profile Dashboard",
-    "📝 Commentary NLP Parser",
-    "🔄 Live Sequence Simulator",
-    "🛡️ Strategic Plan-of-Attack"
+    "📊 Batsman Profile (Week 2-3)",
+    "📝 Commentary NLP (Week 6)",
+    "🔄 Live Simulator (Week 4-5)",
+    "🛡️ Strategy Plan (Week 8)"
 ])
 
 # --- TAB 1: BATSMAN PROFILE ---
@@ -204,6 +204,16 @@ with tab3:
         
         with st.expander("View Raw PyTorch Tensor Output"):
             st.code(f"Input Shape: {tensor_input.shape}\\nOutput Tensor: {prediction_tensor}\\nItem Value: {risk_score}")
+            
+    st.divider()
+    st.markdown("#### ⚙️ Week 5 ML Model Registry (SQLite Backend)")
+    st.markdown("This table dynamically pulls from the `model_registry` table in our database. It proves that the PyTorch training pipeline (`train.py`) successfully logged its focal loss and weight filepaths!")
+    registry_df = get_model_registry()
+    if not registry_df.empty:
+        st.dataframe(registry_df, width='stretch', hide_index=True)
+    else:
+        st.info("No models found in the database. Run `python src/train.py` in the terminal to train and log a model!")
+
 
 # --- TAB 4: STRATEGIC PLAN-OF-ATTACK ---
 with tab4:

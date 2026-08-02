@@ -65,3 +65,7 @@ def log_model_training(version, loss, filepath):
     except Exception as e:
         print(f"Failed to log model training: {e}")
         return False
+
+def get_model_registry():
+    query = "SELECT version, loss as focal_loss, filepath, date_trained FROM model_registry ORDER BY date_trained DESC"
+    return load_data(query)
