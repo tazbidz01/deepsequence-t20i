@@ -13,7 +13,7 @@ except (ImportError, OSError):
 # Add the project root to sys.path so we can import from src
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry
+from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry, get_strike_rate_by_phase
 from src.features import SequencePreprocessor
 from src.model import get_model
 
@@ -126,11 +126,7 @@ with tab1:
     col_chart1, col_chart2 = st.columns(2)
     with col_chart1:
         st.markdown("#### Strike Rate by Match Phase")
-        # Mock chart for now until we build Phase logic
-        df_phase = pd.DataFrame({
-            "Phase": ["Powerplay (0-6)", "Middle (7-15)", "Death (16-20)"],
-            "Strike Rate": [128.5, 138.2, 172.4]
-        })
+        df_phase = get_strike_rate_by_phase(selected_batsman)
         st.bar_chart(df_phase.set_index("Phase"), color="#38BDF8")
     
     with col_chart2:

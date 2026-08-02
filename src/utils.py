@@ -69,3 +69,34 @@ def log_model_training(version, loss, filepath):
 def get_model_registry():
     query = "SELECT version, loss as focal_loss, filepath, date_trained FROM model_registry ORDER BY date_trained DESC"
     return load_data(query)
+
+def get_strike_rate_by_phase(batter_name):
+    safe_name = batter_name.replace("'", "''")
+    query = f"""
+        SELECT 
+            CASE 
+                WHEN over_num BETWEEN 0 AND 5 THEN 'Powerplay (0-5)'
+                WHEN over_num BETWEEN 6 AND 14 THEN 'Middle (6-14)'
+                WHEN over_num BETWEEN 15 AND 19 THEN 'Death (15-19)'
+            END as Phase,
+            CASE 
+                WHEN over_num BETWEEN 0 AND 5 THEN 1
+                WHEN over_num BETWEEN 6 AND 14 THEN 2
+                WHEN over_num BETWEEN 15 AND 19 THEN 3
+            END as phase_order,
+            SUM(runs_batter) as total_runs,
+            COUNT(*) as balls_faced
+        FROM deliveries
+        WHERE batter = '{safe_name}'
+        GROUP BY Phase, phase_order
+        ORDER BY phase_order
+    """
+    df = load_data(query)
+    
+    if df.empty:
+        return pd.DataFrame({"Phase": ["Powerplay (0-5)", "Middle (6-14)", "Death (15-19)"], "Strike Rate": [0.0, 0.0, 0.0]})
+    
+    df['Strike Rate'] = df.apply(lambda row: round((row['total_runs'] / row['balls_faced']) * 100, 2) if row['balls_faced'] > 0 else 0.0, axis=1)
+    
+    return df[['Phase', 'Strike Rate']]
+
