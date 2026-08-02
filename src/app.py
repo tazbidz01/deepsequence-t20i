@@ -13,7 +13,7 @@ except (ImportError, OSError):
 # Add the project root to sys.path so we can import from src
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry, get_strike_rate_by_phase
+from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry, get_strike_rate_by_phase, get_dismissals_by_bowler_style
 from src.features import SequencePreprocessor
 from src.model import get_model
 
@@ -131,10 +131,7 @@ with tab1:
     
     with col_chart2:
         st.markdown("#### Dismissal Splits by Bowler Style")
-        df_style = pd.DataFrame({
-            "Bowler Sub-Style": ["Pace (Fast)", "Off-spin", "Leg-spin", "Chinaman"],
-            "Dismissals": [18, 5, 9, 2]
-        })
+        df_style = get_dismissals_by_bowler_style(selected_batsman)
         st.bar_chart(df_style.set_index("Bowler Sub-Style"), color="#2C5282")
 
 # --- TAB 2: COMMENTARY NLP PARSER ---
