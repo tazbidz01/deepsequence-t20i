@@ -101,32 +101,21 @@ def get_strike_rate_by_phase(batter_name):
     return df[['Phase', 'Strike Rate']]
 
 def get_dismissals_by_bowler_style(batter_name):
-    import hashlib
     safe_name = batter_name.replace("'", "''")
     
-    # Fetch real bowlers who dismissed this batsman
+    # Fetch real bowlers who dismissed this batsman and JOIN to get their true scraped style
     query = f"""
-        SELECT bowler, COUNT(*) as dismissals
-        FROM deliveries
-        WHERE player_out = '{safe_name}'
-        GROUP BY bowler
+        SELECT p.bowling_style as "Bowler Sub-Style", COUNT(*) as dismissals
+        FROM deliveries d
+        JOIN players p ON d.bowler = p.name
+        WHERE d.player_out = '{safe_name}' AND p.bowling_style IS NOT NULL AND p.bowling_style != ''
+        GROUP BY p.bowling_style
+        ORDER BY dismissals DESC
     """
     df = load_data(query)
     
     if df.empty:
-        return pd.DataFrame({"Bowler Sub-Style": ["Pace (Fast)", "Off-spin", "Leg-spin", "Chinaman"], "Dismissals": [0, 0, 0, 0]})
+        return pd.DataFrame({"Bowler Sub-Style": ["No Scraped Data"], "Dismissals": [0]})
     
-    # Since Cricsheet does not provide bowler style in ball-by-ball data,
-    # we deterministically mock the style based on the bowler's name for the UI demonstration.
-    styles = ["Pace (Fast)", "Pace (Fast)", "Off-spin", "Leg-spin", "Chinaman"]
-    
-    def mock_style(name):
-        val = int(hashlib.md5(name.encode()).hexdigest(), 16)
-        return styles[val % len(styles)]
-        
-    df['Bowler Sub-Style'] = df['bowler'].apply(mock_style)
-    
-    # Aggregate by the assigned styles
-    grouped_df = df.groupby('Bowler Sub-Style')['dismissals'].sum().reset_index()
-    return grouped_df
+    return df
 
