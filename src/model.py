@@ -4,7 +4,10 @@ try:
     import torch
     import torch.nn as nn
     TORCH_AVAILABLE = True
-except (ImportError, OSError):
+except Exception as e:
+    import traceback
+    print(f"CRITICAL PYTORCH IMPORT ERROR: {e}")
+    traceback.print_exc()
     TORCH_AVAILABLE = False
 
 if TORCH_AVAILABLE:
@@ -47,9 +50,33 @@ else:
             pass
             
         def __call__(self, x):
-            # x is a numpy array instead of a torch tensor in fallback mode
-            # Mock risk calculation based on sequence length for UI demonstration
-            return MockTensor(0.68, x.shape) 
+            # x is a numpy array (batch, seq, 12)
+            # Dynamic mock calculation for systems hitting WinError 1114 in Streamlit
+            last_ball = x[0, -1, :]
+            runs_normalized = last_ball[0]
+            is_powerplay = last_ball[6]
+            is_death = last_ball[8]
+            
+            base_risk = 0.4
+            
+            # Penalize dot balls heavily
+            if runs_normalized == 0:
+                base_risk += 0.25
+            elif runs_normalized >= (4/6):
+                base_risk -= 0.15
+                
+            # Adjust for match phase pressure
+            if is_powerplay:
+                base_risk += 0.12
+            elif is_death:
+                base_risk += 0.28
+                
+            # Add a tiny bit of variance based on sequence length to simulate neural noise
+            seq_len = x.shape[1]
+            noise = (seq_len * 0.01)
+            
+            final_risk = max(0.12, min(0.94, base_risk + noise))
+            return MockTensor(final_risk, x.shape) 
 
 import os
 
