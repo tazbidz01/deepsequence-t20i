@@ -7,7 +7,10 @@ import os
 try:
     import torch
     TORCH_AVAILABLE = True
-except (ImportError, OSError):
+except Exception as e:
+    import traceback
+    print(f"CRITICAL PYTORCH IMPORT ERROR (app): {e}")
+    traceback.print_exc()
     TORCH_AVAILABLE = False
 
 # Add the project root to sys.path so we can import from src

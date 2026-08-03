@@ -4,7 +4,10 @@ from sklearn.preprocessing import OneHotEncoder
 try:
     import torch
     TORCH_AVAILABLE = True
-except (ImportError, OSError):
+except Exception as e:
+    import traceback
+    print(f"CRITICAL PYTORCH IMPORT ERROR (features): {e}")
+    traceback.print_exc()
     TORCH_AVAILABLE = False
 
 class SequencePreprocessor:
