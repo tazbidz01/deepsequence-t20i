@@ -9,7 +9,7 @@ except (ImportError, OSError):
 
 if TORCH_AVAILABLE:
     class DeepSequenceModel(nn.Module):
-        def __init__(self, input_size=6, hidden_size=16, num_layers=1):
+        def __init__(self, input_size=12, hidden_size=16, num_layers=1):
             super(DeepSequenceModel, self).__init__()
             self.hidden_size = hidden_size
             self.num_layers = num_layers
@@ -40,7 +40,7 @@ else:
             return self.shape_attr
 
     class DeepSequenceModel:
-        def __init__(self, input_size=6, hidden_size=16, num_layers=1):
+        def __init__(self, input_size=12, hidden_size=16, num_layers=1):
             self.input_size = input_size
             
         def eval(self):
@@ -57,7 +57,7 @@ _mock_model = None
 def get_model():
     global _mock_model
     if _mock_model is None:
-        _mock_model = DeepSequenceModel(input_size=6, hidden_size=16)
+        _mock_model = DeepSequenceModel(input_size=12, hidden_size=16)
         if hasattr(_mock_model, 'eval'):
             _mock_model.eval() # Set to evaluation mode for inference
     return _mock_model

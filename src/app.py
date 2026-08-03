@@ -160,6 +160,13 @@ with tab3:
     # Dynamic LSTM sequence length selector
     seq_length = st.slider("LSTM Sequence Window (Number of past deliveries)", min_value=3, max_value=12, value=6)
     
+    st.markdown("#### Match Context for Simulation")
+    col_ctx1, col_ctx2 = st.columns(2)
+    with col_ctx1:
+        sim_phase = st.selectbox("Current Match Phase", ["Powerplay", "Middle Overs", "Death Overs"])
+    with col_ctx2:
+        sim_style = st.selectbox("Current Bowler Style", ["Pace", "Off-spin", "Leg-spin"])
+    
     st.markdown(f"#### Rolling Sequence Inputs (Last {seq_length} Deliveries)")
     
     # Generate dynamic columns
@@ -175,7 +182,7 @@ with tab3:
     if st.button("Predict PyTorch Vulnerability", type="primary"):
         # 1. Preprocess the sequence into a tensor
         preprocessor = SequencePreprocessor()
-        tensor_input = preprocessor.preprocess_sequence(sequence_data)
+        tensor_input = preprocessor.preprocess_sequence(sequence_data, sim_phase, sim_style)
         
         # 2. Load the LSTM model
         model = get_model()
