@@ -51,6 +51,8 @@ else:
             # Mock risk calculation based on sequence length for UI demonstration
             return MockTensor(0.68, x.shape) 
 
+import os
+
 # Singleton mock model for the UI
 _mock_model = None
 
@@ -58,6 +60,13 @@ def get_model():
     global _mock_model
     if _mock_model is None:
         _mock_model = DeepSequenceModel(input_size=12, hidden_size=16)
+        
+        # Load the trained PyTorch weights if they exist
+        if TORCH_AVAILABLE:
+            model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "deepsequence_v1.0-baseline.pth")
+            if os.path.exists(model_path):
+                _mock_model.load_state_dict(torch.load(model_path, weights_only=True))
+                
         if hasattr(_mock_model, 'eval'):
             _mock_model.eval() # Set to evaluation mode for inference
     return _mock_model
