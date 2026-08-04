@@ -79,19 +79,35 @@ else:
                 
             risk = base_risk
             
-            # 2. Evaluate the actual sequence events
+            # 2. Evaluate the actual sequence events (Overall Run Rate)
+            total_runs_scaled = 0.0
+            death_yorkers = 0
+            
             for ball in seq:
                 run_scaled = ball[0]
                 len_yorker = ball[1]
                 phase_death = ball[8]
                 
-                if run_scaled == 0.0:
-                    risk += 0.15 # Dot balls heavily increase pressure
-                elif run_scaled >= (4/6):
-                    risk -= 0.10 # Boundaries relieve pressure
-                    
+                total_runs_scaled += run_scaled
                 if len_yorker == 1.0 and phase_death == 1.0:
-                    risk += 0.15 # Death over yorkers are extremely lethal
+                    death_yorkers += 1
+                    
+            # Calculate total runs in the sequence (run_scaled is runs / 6.0)
+            total_runs = total_runs_scaled * 6.0
+            seq_len = len(seq)
+            
+            # Average runs per ball in the current sequence
+            runs_per_ball = total_runs / seq_len if seq_len > 0 else 0
+            
+            # High pressure if scoring less than 1 run a ball
+            if runs_per_ball < 1.0:
+                risk += 0.15 + (1.0 - runs_per_ball) * 0.1
+            # Relieve pressure if scoring freely (more than 1.5 runs a ball)
+            elif runs_per_ball > 1.5:
+                risk -= 0.15
+                
+            # Extra penalty for death yorkers
+            risk += (0.15 * death_yorkers)
                     
             return min(max(risk, 0.0), 1.0)
 
