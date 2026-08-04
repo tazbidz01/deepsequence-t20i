@@ -174,14 +174,19 @@ with tab3:
     seq_length = st.slider("LSTM Sequence Window (Number of past deliveries)", min_value=3, max_value=12, value=6)
     
     st.markdown("#### Match Context for Simulation")
-    col_ctx1, col_ctx2 = st.columns(2)
+    col_ctx1, col_ctx2, col_ctx3 = st.columns(3)
     with col_ctx1:
         sim_phase = st.selectbox("Current Match Phase", ["Powerplay", "Middle Overs", "Death Overs"])
     with col_ctx2:
         sim_style = st.selectbox("Current Bowler Style", ["Pace", "Off-spin", "Leg-spin"])
+    with col_ctx3:
+        # Add target bowler dropdown
+        all_bowlers_list = get_all_bowlers()
+        target_bowler = st.selectbox("Target Bowler (KPI Injector)", all_bowlers_list, index=all_bowlers_list.index("AJ Tye") if "AJ Tye" in all_bowlers_list else 0)
         
     # Bridge Tab 1 (Historical) to Tab 3 (Simulation Context)
     sr, dismissals, balls = get_historical_context(selected_batsman, sim_phase, sim_style)
+
     if balls > 0:
         st.info(f"**Historical Vulnerability:** {selected_batsman} has faced **{balls} balls** in the **{sim_phase}** against **{sim_style}** bowlers, striking at **{sr}** with **{dismissals} dismissals**.")
     else:
@@ -200,9 +205,37 @@ with tab3:
             sequence_data.append({'run': run, 'length': length})
 
     if st.button("Predict PyTorch Vulnerability", type="primary"):
-        # 1. Preprocess the sequence into a 14-dimensional tensor using historical context
+        # Fetch Batsman's Style
+        from src.db import load_data
+        safe_bat = selected_batsman.replace("'", "''")
+        bat_df = load_data(f"SELECT batting_style FROM players WHERE name = '{safe_bat}'")
+        bat_style = bat_df['batting_style'].iloc[0] if not bat_df.empty and pd.notna(bat_df['batting_style'].iloc[0]) else "Right-hand bat"
+        
+        # Fetch Bowler's Phase Economy
+        phase_df = get_bowler_economy_by_phase(target_bowler)
+        phase_row = phase_df[phase_df['Phase'] == sim_phase]
+        b_phase_econ = phase_row['Economy'].iloc[0] if not phase_row.empty else 7.5
+        
+        # Fetch Bowler's Average against Batsman Type
+        avg_df = get_bowler_average_by_batsman_type(target_bowler)
+        avg_row = avg_df[avg_df['Batsman Type'] == bat_style]
+        b_type_avg = avg_row['Average'].iloc[0] if not avg_row.empty else 25.0
+        
+        # Fetch Bowler's Career KPIs
+        b_wkts, b_runs, b_career_econ, b_career_avg = get_bowler_kpis(target_bowler)
+        if b_career_avg == "N/A":
+            b_career_avg = 25.0
+            
+        # 1. Preprocess the sequence into a 19-dimensional tensor using historical context
         preprocessor = SequencePreprocessor()
-        tensor_input = preprocessor.preprocess_sequence(sequence_data, sim_phase, sim_style, sr, dismissals, balls)
+        tensor_input = preprocessor.preprocess_sequence(
+            sequence_data, sim_phase, sim_style, sr, dismissals,
+            bowler_phase_econ=b_phase_econ,
+            bowler_type_avg=b_type_avg,
+            bowler_career_wickets=b_wkts,
+            bowler_career_econ=b_career_econ,
+            bowler_career_avg=b_career_avg
+        )
         
         # 2. Load the LSTM model
         model = get_model()

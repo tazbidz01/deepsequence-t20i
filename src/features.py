@@ -26,38 +26,88 @@ class SequencePreprocessor:
         self.encoder_phase.fit([["Powerplay"], ["Middle Overs"], ["Death Overs"]])
         self.encoder_style.fit([["Pace"], ["Off-spin"], ["Leg-spin"]])
         
-    def preprocess_sequence(self, sequence_data, match_phase, bowler_style, hist_sr=0.0, hist_dismissals=0, hist_balls=1):
+    def encode_categorical(self, value, encoder):
+        return encoder.transform([[value]])[0].tolist()
+
+    def preprocess_sequence(self, sequence_data, phase, style, norm_sr, dismissal_rate, 
+                            bowler_phase_econ, bowler_type_avg, bowler_career_wickets, 
+                            bowler_career_econ, bowler_career_avg):
         """
-        Takes a list of dictionaries, e.g.:
-        [{'run': 1, 'length': 'Good Length'}, ...]
-        Returns a torch Tensor (or numpy array if PyTorch is broken) of shape (1, seq, 14)
-        """
-        # Encode global context (broadcasted to all timesteps)
-        encoded_phase = self.encoder_phase.transform([[match_phase]])[0]
-        encoded_style = self.encoder_style.transform([[bowler_style]])[0]
-        # Calculate historical indices
-        norm_sr = min(hist_sr / 200.0, 1.0) # Normalize against 200 SR
-        hist_balls = max(hist_balls, 1) # Prevent division by zero
-        dismissal_rate = float(hist_dismissals) / float(hist_balls)
+        Converts a list of dicts (deliveries) into a PyTorch-ready tensor.
+        Extracts categorical features and scales continuous variables.
         
-        features = []
-        for ball in sequence_data:
-            # Normalize runs (divide by 6.0)
-            norm_run = float(ball['run']) / 6.0
+        Args:
+            sequence_data: List of dicts `[{'run': 1, 'length': 'Short'}, ...]`
+            phase: Current Match Phase (e.g., 'Powerplay')
+            style: Current Bowler Style (e.g., 'Pace')
+            norm_sr: Scaled batsman strike rate (historical)
+            dismissal_rate: Scaled batsman dismissal rate (historical)
+            bowler_phase_econ: Bowler's economy in the current phase
+            bowler_type_avg: Bowler's average against the current batsman type
+            bowler_career_wickets: Bowler's total career wickets
+            bowler_career_econ: Bowler's total career economy
+            bowler_career_avg: Bowler's total career average
             
-            # One-hot encode length
-            length_val = ball['length']
-            encoded_length = self.encoder_len.transform([[length_val]])[0]
+        Returns:
+            torch.Tensor of shape (1, seq_length, 19)
+        """
+        # Normalization constraints
+        norm_b_phase_econ = min(float(bowler_phase_econ) / 15.0, 1.0)
+        
+        # Handle 'N/A' or missing averages
+        try:
+            b_avg_float = float(bowler_type_avg)
+            norm_b_type_avg = min(b_avg_float / 50.0, 1.0)
+        except ValueError:
+            norm_b_type_avg = 0.5 # Default middle ground for unknown
             
-            # Combine features: 1 (run) + 5 (len) + 3 (phase) + 3 (style) + 2 (historical) = 14 dimensions!
-            ball_features = np.concatenate(([norm_run], encoded_length, encoded_phase, encoded_style, [norm_sr, dismissal_rate]))
-            features.append(ball_features)
+        norm_b_wkts = min(float(bowler_career_wickets) / 200.0, 1.0)
+        norm_b_career_econ = min(float(bowler_career_econ) / 12.0, 1.0)
+        
+        try:
+            c_avg_float = float(bowler_career_avg)
+            norm_b_career_avg = min(c_avg_float / 50.0, 1.0)
+        except ValueError:
+            norm_b_career_avg = 0.5
             
-        np_features = np.array(features, dtype=np.float32)
-        # Add batch dimension
-        np_features = np.expand_dims(np_features, axis=0)
+        # One-hot context vectors
+        phase_vec = self.encode_categorical(phase, self.encoder_phase)
+        style_vec = self.encode_categorical(style, self.encoder_style)
+        
+        # Sequence construction
+        sequence_vectors = []
+        for delivery in sequence_data:
+            # Scale Run [0, 6] -> [0, 1]
+            run_scaled = min(delivery.get('run', 0) / 6.0, 1.0)
+            
+            # Encode Length
+            len_vec = self.encode_categorical(delivery.get('length', ''), self.encoder_len)
+            
+            # Build the 19-Dimensional delivery vector
+            # Vector Structure:
+            # [0]   : Runs scaled
+            # [1:6] : Length One-Hot (5)
+            # [6:9] : Phase One-Hot (3)
+            # [9:12]: Style One-Hot (3)
+            # [12]  : Batsman Norm SR
+            # [13]  : Batsman Dismissal Rate
+            # [14]  : Bowler Phase Economy
+            # [15]  : Bowler vs Bat Type Average
+            # [16]  : Bowler Career Wickets
+            # [17]  : Bowler Career Economy
+            # [18]  : Bowler Career Average
+            
+            vector = [run_scaled] + len_vec + phase_vec + style_vec + [
+                norm_sr, dismissal_rate, 
+                norm_b_phase_econ, norm_b_type_avg, 
+                norm_b_wkts, norm_b_career_econ, norm_b_career_avg
+            ]
+            sequence_vectors.append(vector)
+            
+        # Convert to numpy array then tensor
+        tensor_data = np.array([sequence_vectors], dtype=np.float32)
         
         if TORCH_AVAILABLE:
-            return torch.tensor(np_features)
+            return torch.tensor(tensor_data)
         else:
-            return np_features
+            return tensor_data
