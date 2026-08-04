@@ -208,14 +208,17 @@ def get_bowler_average_by_batsman_type(bowler_name):
     safe_name = bowler_name.replace("'", "''")
     query = f"""
         SELECT 
-            COALESCE(p.batting_style, 'Unknown') as "Batsman Type",
+            p.batting_style as "Batsman Type",
             SUM(d.runs_batter + d.runs_extras) as total_runs,
             COUNT(CASE WHEN d.wicket_type != '' AND d.wicket_type != 'run out' THEN 1 END) as wickets
         FROM deliveries d
-        LEFT JOIN players p ON d.batter = p.name
-        WHERE d.bowler = '{safe_name}'
+        JOIN players p ON d.batter = p.name
+        WHERE d.bowler = '{safe_name}' 
+          AND p.batting_style IS NOT NULL 
+          AND p.batting_style != ''
         GROUP BY "Batsman Type"
         HAVING total_runs > 0
+
     """
     df = load_data(query)
     if df.empty:
