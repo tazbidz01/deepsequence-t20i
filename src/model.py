@@ -50,42 +50,48 @@ else:
             
         def item(self):
             # 19-Dimensional Heuristic Failsafe Predictor
-            # Extract the sequence
             seq = self.data[0]
-            risk = 0.5 # Base risk
             
+            # Extract static context from the last ball (since they are broadcasted across all timesteps)
+            last_ball = seq[-1]
+            norm_sr = last_ball[12]
+            dismissal_rate = last_ball[13]
+            norm_b_phase_econ = last_ball[14]
+            norm_b_type_avg = last_ball[15]
+            norm_b_wkts = last_ball[16]
+            
+            # 1. Base risk from historical and bowler KPIs
+            base_risk = 0.25
+            
+            # Batsman context
+            if dismissal_rate > 0.05:
+                base_risk += 0.1
+            if norm_sr < 0.5:
+                base_risk += 0.05
+                
+            # Bowler KPIs
+            if norm_b_phase_econ < 0.5:
+                base_risk += 0.10 # Tight bowler builds baseline pressure
+            if norm_b_type_avg < 0.5:
+                base_risk += 0.10 # Bowler is lethal against this batsman type
+            if norm_b_wkts > 0.5:
+                base_risk += 0.05 # Highly experienced strike bowler
+                
+            risk = base_risk
+            
+            # 2. Evaluate the actual sequence events
             for ball in seq:
                 run_scaled = ball[0]
                 len_yorker = ball[1]
-                len_good = ball[4]
                 phase_death = ball[8]
-                norm_sr = ball[12]
-                dismissal_rate = ball[13]
-                norm_b_phase_econ = ball[14]
-                norm_b_type_avg = ball[15]
-                norm_b_wkts = ball[16]
-                norm_b_career_econ = ball[17]
-                norm_b_career_avg = ball[18]
                 
-                # Vulnerability Factors:
                 if run_scaled == 0.0:
-                    risk += 0.05 # Dot balls increase risk
-                if len_yorker == 1.0 and phase_death == 1.0:
-                    risk += 0.1 # Death over yorkers are highly lethal
-                
-                # Incorporate historical batsman context
-                if dismissal_rate > 0.05:
-                    risk += 0.05
-                if norm_sr < 0.5:
-                    risk += 0.05
+                    risk += 0.15 # Dot balls heavily increase pressure
+                elif run_scaled >= (4/6):
+                    risk -= 0.10 # Boundaries relieve pressure
                     
-                # NEW: Incorporate Bowler KPIs (19D logic)
-                if norm_b_phase_econ < 0.5:
-                    risk += 0.05 # Tight bowler builds pressure
-                if norm_b_type_avg < 0.5:
-                    risk += 0.05 # Bowler is lethal against this batsman type
-                if norm_b_wkts > 0.5:
-                    risk += 0.05 # Highly experienced strike bowler
+                if len_yorker == 1.0 and phase_death == 1.0:
+                    risk += 0.15 # Death over yorkers are extremely lethal
                     
             return min(max(risk, 0.0), 1.0)
 
@@ -107,7 +113,7 @@ _mock_model = None
 def get_model():
     global _mock_model
     if _mock_model is None:
-        _mock_model = DeepSequenceModel(input_size=14, hidden_size=16)
+        _mock_model = DeepSequenceModel(input_size=19, hidden_size=32, num_layers=2)
         
         # Load the trained PyTorch weights if they exist
         if TORCH_AVAILABLE:
