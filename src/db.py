@@ -52,7 +52,8 @@ def init_db():
             name TEXT,
             cricinfo_id TEXT,
             cricbuzz_id TEXT,
-            bowling_style TEXT
+            bowling_style TEXT,
+            batting_style TEXT
         )
     ''')
 

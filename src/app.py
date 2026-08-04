@@ -16,7 +16,7 @@ except Exception as e:
 # Add the project root to sys.path so we can import from src
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry, get_strike_rate_by_phase, get_dismissals_by_bowler_style, get_historical_context, get_strike_rate_by_bowler_style
+from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry, get_strike_rate_by_phase, get_dismissals_by_bowler_style, get_historical_context, get_strike_rate_by_bowler_style, get_all_bowlers, get_bowler_kpis, get_bowler_economy_by_phase, get_bowler_average_by_batsman_type
 from src.features import SequencePreprocessor
 from src.model import get_model
 
@@ -101,11 +101,12 @@ link_html = f" <a href='{cricinfo_link}' target='_blank' style='font-size: 1.2re
 st.markdown(f"# Tactical Analysis Profile: {selected_batsman}{link_html}", unsafe_allow_html=True)
 st.markdown("<p style='color:#94A3B8;'>Real-time sequence sequence-based analytics for short-format cricket matches.</p>", unsafe_allow_html=True)
 
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📊 Batsman Profile (Week 2-3)",
-    "📝 Commentary NLP (Week 6)",
-    "🔄 Live Simulator (Week 4-5)",
-    "🛡️ Strategy Plan (Week 8)"
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📊 Batsman Profile", 
+    "🎙️ NLP Commentary", 
+    "🧠 Live Simulator", 
+    "⚙️ ML System",
+    "🎯 Bowler Profile"
 ])
 
 # --- TAB 1: BATSMAN PROFILE ---
