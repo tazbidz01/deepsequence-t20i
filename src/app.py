@@ -19,6 +19,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry, get_strike_rate_by_phase, get_dismissals_by_bowler_style, get_historical_context, get_strike_rate_by_bowler_style, get_all_bowlers, get_bowler_kpis, get_bowler_economy_by_phase, get_bowler_average_by_batsman_type
 from src.features import SequencePreprocessor
 from src.model import get_model
+from src.nlp import CommentaryParser
 
 # Set page config
 st.set_page_config(
@@ -152,14 +153,17 @@ with tab2:
     commentary_input = st.text_area("Ball Commentary String", value=sample_text, height=100)
     
     if st.button("Parse Commentary Features", type="primary"):
+        parser = CommentaryParser()
+        features = parser.extract_features(commentary_input)
+        
         st.success("Regex Parsing Complete!")
         col_res1, col_res2, col_res3 = st.columns(3)
         with col_res1:
-            st.metric("Extracted Line", "Outside Off", help="Regex match: 'outside off'")
+            st.metric("Extracted Line", features['line'], help="Regex matching applied for Line")
         with col_res2:
-            st.metric("Extracted Length", "Full", help="Regex match: 'full delivery'")
+            st.metric("Extracted Length", features['length'], help="Regex matching applied for Length")
         with col_res3:
-            st.metric("Extracted Shot Intent", "Drive", help="Regex match: 'attempts a drive'")
+            st.metric("Extracted Shot Intent", features['shot'], help="Regex matching applied for Shot Intent")
 
 # --- TAB 3: LIVE SEQUENCE SIMULATOR (PyTorch Integration) ---
 with tab3:
