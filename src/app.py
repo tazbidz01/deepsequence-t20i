@@ -206,7 +206,7 @@ with tab3:
 
     if st.button("Predict PyTorch Vulnerability", type="primary"):
         # Fetch Batsman's Style
-        from src.db import load_data
+        from src.utils import load_data
         safe_bat = selected_batsman.replace("'", "''")
         bat_df = load_data(f"SELECT batting_style FROM players WHERE name = '{safe_bat}'")
         bat_style = bat_df['batting_style'].iloc[0] if not bat_df.empty and pd.notna(bat_df['batting_style'].iloc[0]) else "Right-hand bat"
