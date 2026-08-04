@@ -26,15 +26,19 @@ class SequencePreprocessor:
         self.encoder_phase.fit([["Powerplay"], ["Middle Overs"], ["Death Overs"]])
         self.encoder_style.fit([["Pace"], ["Off-spin"], ["Leg-spin"]])
         
-    def preprocess_sequence(self, sequence_data, match_phase, bowler_style):
+    def preprocess_sequence(self, sequence_data, match_phase, bowler_style, hist_sr=0.0, hist_dismissals=0, hist_balls=1):
         """
         Takes a list of dictionaries, e.g.:
         [{'run': 1, 'length': 'Good Length'}, ...]
-        Returns a torch Tensor (or numpy array if PyTorch is broken)
+        Returns a torch Tensor (or numpy array if PyTorch is broken) of shape (1, seq, 14)
         """
         # Encode global context (broadcasted to all timesteps)
         encoded_phase = self.encoder_phase.transform([[match_phase]])[0]
         encoded_style = self.encoder_style.transform([[bowler_style]])[0]
+        # Calculate historical indices
+        norm_sr = min(hist_sr / 200.0, 1.0) # Normalize against 200 SR
+        hist_balls = max(hist_balls, 1) # Prevent division by zero
+        dismissal_rate = float(hist_dismissals) / float(hist_balls)
         
         features = []
         for ball in sequence_data:
@@ -45,8 +49,8 @@ class SequencePreprocessor:
             length_val = ball['length']
             encoded_length = self.encoder_len.transform([[length_val]])[0]
             
-            # Combine features: 1 (run) + 5 (length) + 3 (phase) + 3 (style) = 12 features per timestep
-            ball_features = np.concatenate(([norm_run], encoded_length, encoded_phase, encoded_style))
+            # Combine features: 1 (run) + 5 (len) + 3 (phase) + 3 (style) + 2 (historical) = 14 dimensions!
+            ball_features = np.concatenate(([norm_run], encoded_length, encoded_phase, encoded_style, [norm_sr, dismissal_rate]))
             features.append(ball_features)
             
         np_features = np.array(features, dtype=np.float32)

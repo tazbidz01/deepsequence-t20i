@@ -12,7 +12,7 @@ except Exception as e:
 
 if TORCH_AVAILABLE:
     class DeepSequenceModel(nn.Module):
-        def __init__(self, input_size=12, hidden_size=16, num_layers=1):
+        def __init__(self, input_size=14, hidden_size=16, num_layers=1):
             super(DeepSequenceModel, self).__init__()
             self.hidden_size = hidden_size
             self.num_layers = num_layers
@@ -43,21 +43,32 @@ else:
             return self.shape_attr
 
     class DeepSequenceModel:
-        def __init__(self, input_size=12, hidden_size=16, num_layers=1):
+        def __init__(self, input_size=14, hidden_size=16, num_layers=1):
             self.input_size = input_size
             
         def eval(self):
             pass
             
         def __call__(self, x):
-            # x is a numpy array (batch, seq, 12)
+            # x is a numpy array (batch, seq, 14)
             # Dynamic mock calculation for systems hitting WinError 1114 in Streamlit
             last_ball = x[0, -1, :]
             runs_normalized = last_ball[0]
             is_powerplay = last_ball[6]
             is_death = last_ball[8]
             
-            base_risk = 0.4
+            # Historical indices (Dimensions 12 and 13)
+            hist_sr_norm = last_ball[12]
+            hist_dismissal_rate = last_ball[13]
+            
+            # Base risk is heavily driven by historical dismissal rate
+            # (e.g. if dismissal rate is 10%, base_risk is high. If 0%, base risk is low)
+            base_risk = 0.25 + (hist_dismissal_rate * 2.0)
+            
+            # If they strike fast historically, slightly lower risk
+            if hist_sr_norm > 0.6:
+                base_risk -= 0.1
+
             
             # Penalize dot balls heavily
             if runs_normalized == 0:
@@ -86,7 +97,7 @@ _mock_model = None
 def get_model():
     global _mock_model
     if _mock_model is None:
-        _mock_model = DeepSequenceModel(input_size=12, hidden_size=16)
+        _mock_model = DeepSequenceModel(input_size=14, hidden_size=16)
         
         # Load the trained PyTorch weights if they exist
         if TORCH_AVAILABLE:

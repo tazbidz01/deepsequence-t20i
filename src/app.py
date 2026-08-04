@@ -195,9 +195,9 @@ with tab3:
             sequence_data.append({'run': run, 'length': length})
 
     if st.button("Predict PyTorch Vulnerability", type="primary"):
-        # 1. Preprocess the sequence into a tensor
+        # 1. Preprocess the sequence into a 14-dimensional tensor using historical context
         preprocessor = SequencePreprocessor()
-        tensor_input = preprocessor.preprocess_sequence(sequence_data, sim_phase, sim_style)
+        tensor_input = preprocessor.preprocess_sequence(sequence_data, sim_phase, sim_style, sr, dismissals, balls)
         
         # 2. Load the LSTM model
         model = get_model()

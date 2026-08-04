@@ -26,7 +26,7 @@ class FocalLoss(nn.Module):
         focal_loss = self.alpha * (1 - pt) ** self.gamma * bce_loss
         return torch.mean(focal_loss)
 
-def generate_mock_data(num_samples=100, seq_len=6, input_size=12):
+def generate_mock_data(num_samples=100, seq_len=6, input_size=14):
     # Generates mock tensor data for training (batch, seq, features)
     X = torch.rand(num_samples, seq_len, input_size)
     # Rare dismissal events: only 5% of samples are 'out' (1)
@@ -36,7 +36,7 @@ def generate_mock_data(num_samples=100, seq_len=6, input_size=12):
 
 def train_model():
     print("Initializing DeepSequenceModel Training Pipeline...")
-    model = DeepSequenceModel(input_size=12, hidden_size=16)
+    model = DeepSequenceModel(input_size=14, hidden_size=16)
     
     # Member 1 Task: Focal Loss
     criterion = FocalLoss(alpha=0.8, gamma=2.0)
