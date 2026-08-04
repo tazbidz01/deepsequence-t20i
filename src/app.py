@@ -16,7 +16,7 @@ except Exception as e:
 # Add the project root to sys.path so we can import from src
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry, get_strike_rate_by_phase, get_dismissals_by_bowler_style
+from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry, get_strike_rate_by_phase, get_dismissals_by_bowler_style, get_historical_context
 from src.features import SequencePreprocessor
 from src.model import get_model
 
@@ -169,6 +169,13 @@ with tab3:
         sim_phase = st.selectbox("Current Match Phase", ["Powerplay", "Middle Overs", "Death Overs"])
     with col_ctx2:
         sim_style = st.selectbox("Current Bowler Style", ["Pace", "Off-spin", "Leg-spin"])
+        
+    # Bridge Tab 1 (Historical) to Tab 3 (Simulation Context)
+    sr, dismissals, balls = get_historical_context(selected_batsman, sim_phase, sim_style)
+    if balls > 0:
+        st.info(f"**Historical Vulnerability:** {selected_batsman} has faced **{balls} balls** in the **{sim_phase}** against **{sim_style}** bowlers, striking at **{sr}** with **{dismissals} dismissals**.")
+    else:
+        st.warning(f"**Historical Vulnerability:** No historical data found for {selected_batsman} against {sim_style} in the {sim_phase}.")
     
     st.markdown(f"#### Rolling Sequence Inputs (Last {seq_length} Deliveries)")
     

@@ -118,4 +118,45 @@ def get_dismissals_by_bowler_style(batter_name):
         return pd.DataFrame({"Bowler Sub-Style": ["No Scraped Data"], "Dismissals": [0]})
     
     return df
+    return df
 
+def get_historical_context(batter_name, phase_name, style_name):
+    safe_name = batter_name.replace("'", "''")
+    
+    # Map phase to over range
+    phase_condition = "1=1"
+    if "Powerplay" in phase_name:
+        phase_condition = "d.over_num BETWEEN 0 AND 5"
+    elif "Middle" in phase_name:
+        phase_condition = "d.over_num BETWEEN 6 AND 14"
+    elif "Death" in phase_name:
+        phase_condition = "d.over_num BETWEEN 15 AND 19"
+        
+    # Map style macro to SQL likes
+    style_condition = "1=1"
+    if style_name == "Pace":
+        style_condition = "(LOWER(p.bowling_style) LIKE '%fast%' OR LOWER(p.bowling_style) LIKE '%medium%' OR LOWER(p.bowling_style) LIKE '%pace%')"
+    elif style_name == "Off-spin":
+        style_condition = "(LOWER(p.bowling_style) LIKE '%offbreak%' OR LOWER(p.bowling_style) LIKE '%off spin%')"
+    elif style_name == "Leg-spin":
+        style_condition = "(LOWER(p.bowling_style) LIKE '%legbreak%' OR LOWER(p.bowling_style) LIKE '%leg spin%' OR LOWER(p.bowling_style) LIKE '%orthodox%')"
+        
+    query = f"""
+        SELECT 
+            SUM(d.runs_batter) as runs,
+            COUNT(*) as balls,
+            SUM(CASE WHEN d.player_out = '{safe_name}' THEN 1 ELSE 0 END) as dismissals
+        FROM deliveries d
+        JOIN players p ON d.bowler = p.name
+        WHERE d.batter = '{safe_name}' 
+          AND {phase_condition} 
+          AND {style_condition}
+    """
+    df = load_data(query)
+    if not df.empty and df.iloc[0]['balls'] > 0:
+        balls = int(df.iloc[0]['balls'])
+        runs = int(df.iloc[0]['runs'] or 0)
+        dismissals = int(df.iloc[0]['dismissals'] or 0)
+        sr = round((runs / balls) * 100, 2)
+        return sr, dismissals, balls
+    return 0.0, 0, 0
