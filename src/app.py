@@ -174,15 +174,27 @@ with tab3:
     seq_length = st.slider("LSTM Sequence Window (Number of past deliveries)", min_value=3, max_value=12, value=6)
     
     st.markdown("#### Match Context for Simulation")
-    col_ctx1, col_ctx2, col_ctx3 = st.columns(3)
+    col_ctx1, col_ctx2 = st.columns(2)
     with col_ctx1:
         sim_phase = st.selectbox("Current Match Phase", ["Powerplay", "Middle Overs", "Death Overs"])
     with col_ctx2:
-        sim_style = st.selectbox("Current Bowler Style", ["Pace", "Off-spin", "Leg-spin"])
-    with col_ctx3:
-        # Add target bowler dropdown
         all_bowlers_list = get_all_bowlers()
         target_bowler = st.selectbox("Target Bowler (KPI Injector)", all_bowlers_list, index=all_bowlers_list.index("AJ Tye") if "AJ Tye" in all_bowlers_list else 0)
+        
+    # Auto-lookup target bowler style
+    from src.db import load_data
+    safe_bowler = target_bowler.replace("'", "''")
+    b_style_df = load_data(f"SELECT bowling_style FROM players WHERE name = '{safe_bowler}'")
+    raw_b_style = b_style_df['bowling_style'].iloc[0] if not b_style_df.empty and pd.notna(b_style_df['bowling_style'].iloc[0]) else "fast"
+    
+    raw_lower = raw_b_style.lower()
+    if 'spin' in raw_lower or 'orthodox' in raw_lower or 'break' in raw_lower:
+        if 'leg' in raw_lower or 'orthodox' in raw_lower or 'chinaman' in raw_lower:
+            sim_style = "Leg-spin"
+        else:
+            sim_style = "Off-spin"
+    else:
+        sim_style = "Pace"
         
     # Bridge Tab 1 (Historical) to Tab 3 (Simulation Context)
     sr, dismissals, balls = get_historical_context(selected_batsman, sim_phase, sim_style)
