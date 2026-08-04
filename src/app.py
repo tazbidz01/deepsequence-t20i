@@ -16,7 +16,7 @@ except Exception as e:
 # Add the project root to sys.path so we can import from src
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry, get_strike_rate_by_phase, get_dismissals_by_bowler_style, get_historical_context
+from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry, get_strike_rate_by_phase, get_dismissals_by_bowler_style, get_historical_context, get_strike_rate_by_bowler_style
 from src.features import SequencePreprocessor
 from src.model import get_model
 
@@ -125,17 +125,22 @@ with tab1:
     with col4:
         st.markdown(f'<div class="kpi-card"><div class="kpi-value">{times_out}</div><div class="kpi-label">Times Out</div></div>', unsafe_allow_html=True)
 
-    st.markdown("### Match Phase & Bowling Splits")
-    col_chart1, col_chart2 = st.columns(2)
+    st.markdown("### Contextual Chart Analytics")
+    col_chart1, col_chart2, col_chart3 = st.columns(3)
     with col_chart1:
-        st.markdown("#### Strike Rate by Match Phase")
+        st.markdown("#### SR by Match Phase")
         df_phase = get_strike_rate_by_phase(selected_batsman)
         st.bar_chart(df_phase.set_index("Phase"), color="#38BDF8")
     
     with col_chart2:
-        st.markdown("#### Dismissal Splits by Bowler Style")
+        st.markdown("#### Dismissals by Style")
         df_style = get_dismissals_by_bowler_style(selected_batsman)
         st.bar_chart(df_style.set_index("Bowler Sub-Style"), color="#2C5282")
+        
+    with col_chart3:
+        st.markdown("#### SR by Bowler Style")
+        df_sr_style = get_strike_rate_by_bowler_style(selected_batsman)
+        st.bar_chart(df_sr_style.set_index("Bowler Sub-Style"), color="#9333EA")
 
 # --- TAB 2: COMMENTARY NLP PARSER ---
 with tab2:

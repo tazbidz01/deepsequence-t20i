@@ -118,7 +118,30 @@ def get_dismissals_by_bowler_style(batter_name):
         return pd.DataFrame({"Bowler Sub-Style": ["No Scraped Data"], "Dismissals": [0]})
     
     return df
-    return df
+
+def get_strike_rate_by_bowler_style(batter_name):
+    safe_name = batter_name.replace("'", "''")
+    query = f"""
+        SELECT 
+            p.bowling_style as "Bowler Sub-Style",
+            SUM(d.runs_batter) as total_runs,
+            COUNT(*) as balls_faced
+        FROM deliveries d
+        JOIN players p ON d.bowler = p.name
+        WHERE d.batter = '{safe_name}' AND p.bowling_style IS NOT NULL AND p.bowling_style != ''
+        GROUP BY p.bowling_style
+        HAVING balls_faced > 0
+        ORDER BY total_runs DESC
+    """
+    df = load_data(query)
+    
+    if df.empty:
+        return pd.DataFrame({"Bowler Sub-Style": ["No Data"], "Strike Rate": [0.0]})
+    
+    df['Strike Rate'] = df.apply(lambda row: round((row['total_runs'] / row['balls_faced']) * 100, 2), axis=1)
+    
+    return df[['Bowler Sub-Style', 'Strike Rate']]
+
 
 def get_historical_context(batter_name, phase_name, style_name):
     safe_name = batter_name.replace("'", "''")
