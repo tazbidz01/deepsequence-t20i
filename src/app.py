@@ -248,3 +248,40 @@ with tab4:
         st.write("Click below to compile and download the official PDF cheat sheet containing visual strategy guidelines.")
         
         st.button("Compile & Download PDF Report", type="secondary")
+
+# --- TAB 5: BOWLER PROFILE ---
+with tab5:
+    st.header("🎯 Bowler Profile")
+    
+    # 1. Search Box
+    all_bowlers = get_all_bowlers()
+    selected_bowler = st.selectbox("Search Bowler", all_bowlers, index=all_bowlers.index("Rashid Khan") if "Rashid Khan" in all_bowlers else 0)
+    
+    cricinfo_link_bowler = get_player_cricinfo_link(selected_bowler)
+    st.markdown(f"[{selected_bowler} - Cricinfo Profile]({cricinfo_link_bowler})")
+    
+    # 2. Top Level KPIs
+    wickets, runs_conc, economy, avg = get_bowler_kpis(selected_bowler)
+    
+    st.markdown("### Career T20I Statistics")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-value">{wickets}</div><div class="kpi-label">Wickets</div></div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-value">{economy}</div><div class="kpi-label">Economy Rate</div></div>', unsafe_allow_html=True)
+    with col3:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-value">{avg}</div><div class="kpi-label">Bowling Average</div></div>', unsafe_allow_html=True)
+    with col4:
+        st.markdown(f'<div class="kpi-card"><div class="kpi-value">{runs_conc}</div><div class="kpi-label">Runs Conceded</div></div>', unsafe_allow_html=True)
+        
+    st.markdown("### Contextual Chart Analytics")
+    col_chart1, col_chart2 = st.columns(2)
+    with col_chart1:
+        st.markdown("#### Economy by Match Phase")
+        df_b_phase = get_bowler_economy_by_phase(selected_bowler)
+        st.bar_chart(df_b_phase.set_index("Phase"), color="#EAB308") # Yellow
+        
+    with col_chart2:
+        st.markdown("#### Average by Batsman Type")
+        df_b_type = get_bowler_average_by_batsman_type(selected_bowler)
+        st.bar_chart(df_b_type.set_index("Batsman Type"), color="#EF4444") # Red
