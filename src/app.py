@@ -182,7 +182,7 @@ with tab3:
         target_bowler = st.selectbox("Target Bowler (KPI Injector)", all_bowlers_list, index=all_bowlers_list.index("AJ Tye") if "AJ Tye" in all_bowlers_list else 0)
         
     # Auto-lookup target bowler style
-    from src.db import load_data
+    from src.utils import load_data
     safe_bowler = target_bowler.replace("'", "''")
     b_style_df = load_data(f"SELECT bowling_style FROM players WHERE name = '{safe_bowler}'")
     raw_b_style = b_style_df['bowling_style'].iloc[0] if not b_style_df.empty and pd.notna(b_style_df['bowling_style'].iloc[0]) else "fast"
