@@ -43,11 +43,22 @@ def get_player_cricinfo_link(player_name):
     safe_name = player_name.replace("'", "''")
     query = f"SELECT cricinfo_id FROM players WHERE name = '{safe_name}' LIMIT 1"
     df = load_data(query)
-    if not df.empty:
+    
+    if not df.empty and pd.notna(df.iloc[0]['cricinfo_id']):
         cricinfo_id = df.iloc[0]['cricinfo_id']
-        if pd.notna(cricinfo_id):
-            return f"https://www.espncricinfo.com/ci/content/player/{int(float(cricinfo_id))}.html"
+        return f"https://www.espncricinfo.com/player/player-{int(float(cricinfo_id))}"
     return None
+
+def get_player_styles(player_name):
+    safe_name = player_name.replace("'", "''")
+    query = f"SELECT batting_style, bowling_style FROM players WHERE name = '{safe_name}' LIMIT 1"
+    df = load_data(query)
+    
+    if not df.empty:
+        bat_style = df.iloc[0]['batting_style'] if pd.notna(df.iloc[0]['batting_style']) else ""
+        bowl_style = df.iloc[0]['bowling_style'] if pd.notna(df.iloc[0]['bowling_style']) else ""
+        return bat_style, bowl_style
+    return "", ""
 
 def log_model_training(version, loss, filepath):
     try:
@@ -142,6 +153,29 @@ def get_strike_rate_by_bowler_style(batter_name):
     
     return df[['Bowler Sub-Style', 'Strike Rate']]
 
+def get_average_by_bowler_style(batter_name):
+    safe_name = batter_name.replace("'", "''")
+    query = f"""
+        SELECT 
+            p.bowling_style as "Bowler Sub-Style",
+            SUM(d.runs_batter) as total_runs,
+            SUM(CASE WHEN d.player_out = '{safe_name}' THEN 1 ELSE 0 END) as dismissals
+        FROM deliveries d
+        JOIN players p ON d.bowler = p.name
+        WHERE d.batter = '{safe_name}' AND p.bowling_style IS NOT NULL AND p.bowling_style != ''
+        GROUP BY p.bowling_style
+        HAVING total_runs > 0
+        ORDER BY total_runs DESC
+    """
+    df = load_data(query)
+    
+    if df.empty:
+        return pd.DataFrame({"Bowler Sub-Style": ["No Data"], "Average": [0.0]})
+        
+    df['Average'] = df.apply(lambda row: round(row['total_runs'] / row['dismissals'], 2) if row['dismissals'] > 0 else row['total_runs'], axis=1)
+    
+    return df[['Bowler Sub-Style', 'Average']]
+
 # ==========================================
 # BOWLER PROFILE ANALYTICS (TAB 5)
 # ==========================================
@@ -163,7 +197,7 @@ def get_bowler_kpis(bowler_name):
     """
     df = load_data(query)
     if df.empty or pd.isna(df['balls_bowled'].iloc[0]) or df['balls_bowled'].iloc[0] == 0:
-        return 0, 0, 0, 0
+        return 0, 0, 0, 0, 0
     
     wickets = int(df['wickets'].iloc[0])
     runs = int(df['runs_conceded'].iloc[0])
@@ -174,7 +208,7 @@ def get_bowler_kpis(bowler_name):
     average = round(runs / wickets, 2) if wickets > 0 else "N/A"
     sr = round(balls / wickets, 2) if wickets > 0 else "N/A"
     
-    return wickets, runs, economy, average
+    return wickets, runs, economy, average, sr
 
 def get_bowler_economy_by_phase(bowler_name):
     safe_name = bowler_name.replace("'", "''")
@@ -199,10 +233,35 @@ def get_bowler_economy_by_phase(bowler_name):
     """
     df = load_data(query)
     if df.empty:
-        return pd.DataFrame({"Phase": ["No Data"], "Economy": [0.0]})
+        return pd.DataFrame({"Phase": ["Powerplay", "Middle Overs", "Death Overs"], "Economy": [0.0, 0.0, 0.0]})
         
-    df['Economy'] = df.apply(lambda row: round(row['total_runs'] / (row['total_balls'] / 6.0), 2), axis=1)
+    df['Economy'] = df.apply(lambda row: round(row['total_runs'] / (row['total_balls'] / 6.0), 2) if row['total_balls'] > 0 else 0, axis=1)
     return df[['Phase', 'Economy']]
+
+def get_bowler_wickets_by_phase(bowler_name):
+    safe_name = bowler_name.replace("'", "''")
+    query = f"""
+        SELECT 
+            CASE 
+                WHEN over_num < 6 THEN 'Powerplay'
+                WHEN over_num >= 6 AND over_num < 15 THEN 'Middle Overs'
+                ELSE 'Death Overs'
+            END as Phase,
+            COUNT(CASE WHEN wicket_type != '' AND wicket_type != 'run out' THEN 1 END) as Wickets
+        FROM deliveries
+        WHERE bowler = '{safe_name}'
+        GROUP BY Phase
+        ORDER BY 
+            CASE Phase
+                WHEN 'Powerplay' THEN 1
+                WHEN 'Middle Overs' THEN 2
+                WHEN 'Death Overs' THEN 3
+            END
+    """
+    df = load_data(query)
+    if df.empty:
+        return pd.DataFrame({"Phase": ["Powerplay", "Middle Overs", "Death Overs"], "Wickets": [0, 0, 0]})
+    return df[['Phase', 'Wickets']]
 
 def get_bowler_average_by_batsman_type(bowler_name):
     safe_name = bowler_name.replace("'", "''")
@@ -210,7 +269,8 @@ def get_bowler_average_by_batsman_type(bowler_name):
         SELECT 
             p.batting_style as "Batsman Type",
             SUM(d.runs_batter + d.runs_extras) as total_runs,
-            COUNT(CASE WHEN d.wicket_type != '' AND d.wicket_type != 'run out' THEN 1 END) as wickets
+            COUNT(CASE WHEN d.wicket_type != '' AND d.wicket_type != 'run out' THEN 1 END) as wickets,
+            COUNT(*) as balls_bowled
         FROM deliveries d
         JOIN players p ON d.batter = p.name
         WHERE d.bowler = '{safe_name}' 
@@ -222,15 +282,50 @@ def get_bowler_average_by_batsman_type(bowler_name):
     """
     df = load_data(query)
     if df.empty:
-        return pd.DataFrame({"Batsman Type": ["No Data"], "Average": [0.0]})
+        return pd.DataFrame({"Batsman Type": ["No Data"], "Average": [0.0], "Economy": [0.0], "Strike Rate": [0.0], "Wickets": [0]})
         
     df['Average'] = df.apply(
         lambda row: round(row['total_runs'] / row['wickets'], 2) if row['wickets'] > 0 else row['total_runs'], 
         axis=1
     )
-    return df[['Batsman Type', 'Average']]
+    df['Economy'] = df.apply(
+        lambda row: round(row['total_runs'] / (row['balls_bowled'] / 6.0), 2) if row['balls_bowled'] > 0 else 0.0,
+        axis=1
+    )
+    df['Strike Rate'] = df.apply(
+        lambda row: round(row['balls_bowled'] / row['wickets'], 2) if row['wickets'] > 0 else float(row['balls_bowled']),
+        axis=1
+    )
+    df['Wickets'] = df['wickets']
+    
+    return df[['Batsman Type', 'Average', 'Economy', 'Strike Rate', 'Wickets']]
 
-
+def get_bowler_kpis_by_batsman_style(bowler_name, batsman_style):
+    safe_name = bowler_name.replace("'", "''")
+    safe_style = batsman_style.replace("'", "''")
+    query = f"""
+        SELECT 
+            SUM(d.runs_batter + d.runs_extras) as runs_conceded,
+            COUNT(CASE WHEN d.wicket_type != '' AND d.wicket_type != 'run out' THEN 1 END) as wickets,
+            COUNT(*) as balls_bowled
+        FROM deliveries d
+        JOIN players p ON d.batter = p.name
+        WHERE d.bowler = '{safe_name}'
+          AND p.batting_style = '{safe_style}'
+    """
+    df = load_data(query)
+    if df.empty or pd.isna(df['balls_bowled'].iloc[0]) or df['balls_bowled'].iloc[0] == 0:
+        return 0.0, 0.0, 0
+        
+    runs = int(df['runs_conceded'].iloc[0] or 0)
+    wickets = int(df['wickets'].iloc[0] or 0)
+    balls = int(df['balls_bowled'].iloc[0] or 0)
+    
+    overs = balls / 6.0
+    economy = round(runs / overs, 2) if overs > 0 else 0.0
+    sr = round(balls / wickets, 2) if wickets > 0 else float(balls)
+    
+    return economy, sr, wickets
 
 def get_historical_context(batter_name, phase_name, style_name):
     safe_name = batter_name.replace("'", "''")
@@ -270,5 +365,6 @@ def get_historical_context(batter_name, phase_name, style_name):
         runs = int(df.iloc[0]['runs'] or 0)
         dismissals = int(df.iloc[0]['dismissals'] or 0)
         sr = round((runs / balls) * 100, 2)
-        return sr, dismissals, balls
-    return 0.0, 0, 0
+        avg = round((runs / dismissals), 2) if dismissals > 0 else float(runs)
+        return sr, dismissals, balls, avg
+    return 0.0, 0, 0, 0.0

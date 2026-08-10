@@ -12,7 +12,7 @@ except Exception as e:
 
 if TORCH_AVAILABLE:
     class DeepSequenceModel(nn.Module):
-        def __init__(self, input_size=19, hidden_size=32, num_layers=2):
+        def __init__(self, input_size=25, hidden_size=32, num_layers=2):
             super(DeepSequenceModel, self).__init__()
             self.hidden_size = hidden_size
             self.num_layers = num_layers
@@ -49,7 +49,7 @@ else:
             self.shape = data.shape
             
         def item(self):
-            # 19-Dimensional Heuristic Failsafe Predictor
+            # 25-Dimensional Heuristic Failsafe Predictor
             seq = self.data[0]
             
             # Extract static context from the last ball (since they are broadcasted across all timesteps)
@@ -59,6 +59,13 @@ else:
             norm_b_phase_econ = last_ball[14]
             norm_b_type_avg = last_ball[15]
             norm_b_wkts = last_ball[16]
+            norm_b_sr = last_ball[19]
+            
+            norm_bat_avg_vs_style = last_ball[20]
+            norm_b_econ_vs_style = last_ball[21]
+            norm_b_sr_vs_style = last_ball[22]
+            norm_b_wkts_vs_style = last_ball[23]
+            norm_b_phase_wkts = last_ball[24]
             
             # 1. Base risk from historical and bowler KPIs
             base_risk = 0.25
@@ -72,10 +79,24 @@ else:
             # Bowler KPIs
             if norm_b_phase_econ < 0.5:
                 base_risk += 0.10 # Tight bowler builds baseline pressure
+            if norm_b_phase_wkts > 0.4:
+                base_risk += 0.12 # Lethal strike bowler in this specific phase
             if norm_b_type_avg < 0.5:
                 base_risk += 0.10 # Bowler is lethal against this batsman type
             if norm_b_wkts > 0.5:
                 base_risk += 0.05 # Highly experienced strike bowler
+            if norm_b_sr < 0.6: # Strike bowler taking frequent wickets
+                base_risk += 0.08
+                
+            # Deep match-up specific adjustments
+            if norm_bat_avg_vs_style < 0.4:
+                base_risk += 0.12 # Batsman struggles deeply against this style
+            if norm_b_econ_vs_style < 0.5:
+                base_risk += 0.10 # Bowler specifically chokes this type of batsman
+            if norm_b_sr_vs_style < 0.5:
+                base_risk += 0.10 # Bowler frequently dismisses this type of batsman
+            if norm_b_wkts_vs_style > 0.4:
+                base_risk += 0.05
                 
             risk = base_risk
             
@@ -112,7 +133,7 @@ else:
             return min(max(risk, 0.0), 1.0)
 
     class DeepSequenceModel:
-        def __init__(self, input_size=19, hidden_size=32, num_layers=2):
+        def __init__(self, input_size=24, hidden_size=32, num_layers=2):
             self.input_size = input_size
             
         def eval(self):
@@ -129,11 +150,11 @@ _mock_model = None
 def get_model():
     global _mock_model
     if _mock_model is None:
-        _mock_model = DeepSequenceModel(input_size=19, hidden_size=32, num_layers=2)
+        _mock_model = DeepSequenceModel(input_size=24, hidden_size=32, num_layers=2)
         
         # Load the trained PyTorch weights if they exist
         if TORCH_AVAILABLE:
-            model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "deepsequence_v1.0-baseline.pth")
+            model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "deepsequence_v1.2-baseline.pth")
             if os.path.exists(model_path):
                 _mock_model.load_state_dict(torch.load(model_path, weights_only=True))
                 
