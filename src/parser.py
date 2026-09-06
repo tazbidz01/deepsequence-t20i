@@ -75,16 +75,28 @@ def ingest_all_jsons(raw_data_dir):
                 
     if matches_data:
         matches_df = pd.DataFrame(matches_data)
-        # Drop duplicates if ingesting multiple times for safety
         matches_df.drop_duplicates(subset=['match_id'], inplace=True)
-        matches_df.to_sql('matches', conn, if_exists='append', index=False)
-        print(f"Inserted {len(matches_df)} matches.")
         
-    if deliveries_data:
-        deliveries_df = pd.DataFrame(deliveries_data)
-        deliveries_df.to_sql('deliveries', conn, if_exists='append', index=False)
-        print(f"Inserted {len(deliveries_df)} deliveries.")
+        # Filter out existing matches to avoid IntegrityError on auto-updates
+        try:
+            existing_matches = pd.read_sql("SELECT match_id FROM matches", conn)['match_id'].tolist()
+        except:
+            existing_matches = []
+            
+        new_matches_df = matches_df[~matches_df['match_id'].isin(existing_matches)]
         
+        if not new_matches_df.empty:
+            new_matches_df.to_sql('matches', conn, if_exists='append', index=False)
+            print(f"Inserted {len(new_matches_df)} new matches.")
+            
+            if deliveries_data:
+                deliveries_df = pd.DataFrame(deliveries_data)
+                new_deliveries_df = deliveries_df[deliveries_df['match_id'].isin(new_matches_df['match_id'])]
+                new_deliveries_df.to_sql('deliveries', conn, if_exists='append', index=False)
+                print(f"Inserted {len(new_deliveries_df)} new deliveries.")
+        else:
+            print("Database is already up to date. No new matches to insert.")
+            
     conn.close()
 
 if __name__ == "__main__":

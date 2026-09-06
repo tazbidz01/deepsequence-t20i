@@ -26,23 +26,63 @@ class FocalLoss(nn.Module):
         focal_loss = self.alpha * (1 - pt) ** self.gamma * bce_loss
         return torch.mean(focal_loss)
 
-def generate_mock_data(num_samples=100, seq_len=6, input_size=25):
+def generate_mock_data(num_samples=100, seq_len=6, input_size=56):
     # Generates mock tensor data for training (batch, seq, features)
     X = torch.rand(num_samples, seq_len, input_size)
-    # Rare dismissal events: only 5% of samples are 'out' (1)
-    y_vals = np.random.choice([0.0, 1.0], size=(num_samples, 1), p=[0.95, 0.05])
+    y_vals = []
+    
+    for i in range(num_samples):
+        last_ball = X[i, -1, :]
+        bat_avg_vs_style = last_ball[33].item()
+        b_career_sr = last_ball[32].item()
+        b_wkts_vs_style = last_ball[36].item()
+        
+        # New 50D Supporting Bowler KPIs
+        try:
+            sb_career_wkts = last_ball[46].item()
+            sb_career_sr = last_ball[49].item()
+        except IndexError:
+            sb_career_wkts = 0.5
+            sb_career_sr = 0.5
+            
+        # New 52D True Lifetime Batsman KPIs
+        try:
+            bat_career_avg = last_ball[50].item()
+            bat_career_sr = last_ball[51].item()
+        except IndexError:
+            bat_career_avg = 0.5
+            bat_career_sr = 0.5
+        
+        # Heavily weight the targets based on career KPIs
+        risk_prob = 0.05
+        if bat_avg_vs_style < 0.4: risk_prob += 0.20
+        if b_career_sr < 0.5: risk_prob += 0.20
+        if b_wkts_vs_style > 0.5: risk_prob += 0.15
+        
+        # Add Partnership pressure
+        if sb_career_wkts > 0.6: risk_prob += 0.10
+        if sb_career_sr < 0.4: risk_prob += 0.15
+        
+        # Add True Lifetime Batsman Pressure
+        if bat_career_avg < 0.4: risk_prob += 0.15
+        if bat_career_sr < 0.5: risk_prob += 0.10
+        
+        risk_prob = min(risk_prob, 1.0)
+        y_val = 1.0 if np.random.rand() < risk_prob else 0.0
+        y_vals.append([y_val])
+        
     y = torch.tensor(y_vals, dtype=torch.float32)
     return X, y
 
 def train_model():
-    print("Initializing DeepSequenceModel Training Pipeline...")
-    model = DeepSequenceModel(input_size=25, hidden_size=32, num_layers=2)
+    print("Initializing DeepSequenceModel Training Pipeline (56D Partnership Logic)...")
+    model = DeepSequenceModel(input_size=56, hidden_size=64, num_layers=2)
     
     # Member 1 Task: Focal Loss
     criterion = FocalLoss(alpha=0.8, gamma=2.0)
     optimizer = optim.Adam(model.parameters(), lr=0.01)
     
-    print("Generating 25-Dimensional Dummy T20I Sequence Data (class imbalance: 95% Safe, 5% Out)...")
+    print("Generating 56-Dimensional Dummy T20I Sequence Data (class imbalance: 95% Safe, 5% Out)...")
     X_train, y_train = generate_mock_data(num_samples=200)
     
     epochs = 10
@@ -64,14 +104,15 @@ def train_model():
         
     print("Training complete.")
     
-    # Save Model Weights
-    model_version = "v1.3-baseline"
-    save_path = os.path.join("models", f"deepsequence_{model_version}.pth")
-    torch.save(model.state_dict(), save_path)
-    print(f"Model saved to {save_path}")
+    # Save model weights to the shared models directory
+    os.makedirs('models', exist_ok=True)
+    model_path = os.path.join('models', 'deepsequence_v1.6-baseline.pth')
+    torch.save(model.state_dict(), model_path)
+    print(f"Model saved to {model_path}")
     
     # Member 2 Task: Database Routing
-    success = log_model_training(model_version, final_loss, save_path)
+    model_version = "v1.6-baseline"
+    success = log_model_training(model_version, final_loss, model_path)
     if success:
         print("Successfully routed model parameters to SQLite database (model_registry).")
     else:

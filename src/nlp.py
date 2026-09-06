@@ -40,8 +40,8 @@ class CommentaryParser:
         
         # Format 1: HF Dataset "bowler name is X batsman name is Y"
         match_hf = re.search(r"bowler name is (.*?) batsman name is (.*?) over", text, re.IGNORECASE)
-        # Format 2: UI Sample "Starc bowls... Kohli attempts"
-        match_ui = re.search(r"^([A-Za-z\s\-]+)\s+bowls.*?,\s*([A-Za-z\s\-]+)\s+attempts", text, re.IGNORECASE)
+        # Format 2: UI Sample "Starc bowls... Kohli attempts/hits/digs/slashes"
+        match_ui = re.search(r"^([A-Za-z\s\-]+?)\s+bowls.*?,\s*([A-Za-z\s\-]+?)\s+(attempts|hits|digs|slashes|works|barely|steps|defends|pulls|pushes|leaves|edges|is)", text, re.IGNORECASE)
         # Format 3: Classic "Starc to Kohli"
         match_classic = re.search(r"^([A-Za-z\s\-]+)\s+to\s+([A-Za-z\s\-]+),", text, re.IGNORECASE)
         
@@ -86,6 +86,22 @@ class CommentaryParser:
             'batter': batter,
             'outcome': outcome
         }
+
+    def map_outcome_to_runs(self, outcome_str):
+        """Maps a text outcome to a numeric run value for the PyTorch tensor."""
+        mapping = {
+            "Six": 6,
+            "Four": 4,
+            "Three": 3,
+            "Two": 2,
+            "Single": 1,
+            "Wide": 1,
+            "No Ball": 1,
+            "Dot Ball": 0,
+            "Wicket": 0,
+            "Unknown": 0
+        }
+        return mapping.get(outcome_str, 0)
 
 if __name__ == "__main__":
     # Test block

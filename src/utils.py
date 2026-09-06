@@ -1,4 +1,5 @@
 import pandas as pd
+import streamlit as st
 from src.db import get_connection
 
 def load_data(query):
@@ -11,12 +12,14 @@ def load_data(query):
         print(f"Database error: {e}")
         return pd.DataFrame()
 
+@st.cache_data(ttl=3600)
 def get_all_batsmen():
     df = load_data("SELECT DISTINCT batter FROM deliveries ORDER BY batter ASC")
     if not df.empty:
         return df['batter'].tolist()
     return ["No Data Available"]
 
+@st.cache_data(ttl=3600)
 def get_batsman_kpis(batter_name):
     # Escape quotes in names like D'Arcy Short
     safe_name = batter_name.replace("'", "''")
@@ -39,6 +42,7 @@ def get_batsman_kpis(batter_name):
     
     return 0, 0, 0, 0
 
+@st.cache_data(ttl=3600)
 def get_player_cricinfo_link(player_name):
     safe_name = player_name.replace("'", "''")
     query = f"SELECT cricinfo_id FROM players WHERE name = '{safe_name}' LIMIT 1"
@@ -49,6 +53,7 @@ def get_player_cricinfo_link(player_name):
         return f"https://www.espncricinfo.com/player/player-{int(float(cricinfo_id))}"
     return None
 
+@st.cache_data(ttl=3600)
 def get_player_styles(player_name):
     safe_name = player_name.replace("'", "''")
     query = f"SELECT batting_style, bowling_style FROM players WHERE name = '{safe_name}' LIMIT 1"
@@ -81,6 +86,7 @@ def get_model_registry():
     query = "SELECT version, loss as focal_loss, filepath, date_trained FROM model_registry ORDER BY date_trained DESC"
     return load_data(query)
 
+@st.cache_data(ttl=3600)
 def get_strike_rate_by_phase(batter_name):
     safe_name = batter_name.replace("'", "''")
     query = f"""
@@ -111,6 +117,7 @@ def get_strike_rate_by_phase(batter_name):
     
     return df[['Phase', 'Strike Rate']]
 
+@st.cache_data(ttl=3600)
 def get_dismissals_by_bowler_style(batter_name):
     safe_name = batter_name.replace("'", "''")
     
@@ -130,6 +137,7 @@ def get_dismissals_by_bowler_style(batter_name):
     
     return df
 
+@st.cache_data(ttl=3600)
 def get_strike_rate_by_bowler_style(batter_name):
     safe_name = batter_name.replace("'", "''")
     query = f"""
@@ -153,6 +161,7 @@ def get_strike_rate_by_bowler_style(batter_name):
     
     return df[['Bowler Sub-Style', 'Strike Rate']]
 
+@st.cache_data(ttl=3600)
 def get_average_by_bowler_style(batter_name):
     safe_name = batter_name.replace("'", "''")
     query = f"""
@@ -176,15 +185,83 @@ def get_average_by_bowler_style(batter_name):
     
     return df[['Bowler Sub-Style', 'Average']]
 
+@st.cache_data(ttl=3600)
+def get_partnership_stats(player1, player2):
+    """
+    Returns the raw historical partnership stats: (runs, balls, dismissals).
+    """
+    safe_p1 = player1.replace("'", "''")
+    safe_p2 = player2.replace("'", "''")
+    query = f"""
+        SELECT
+            SUM(runs_batter + runs_extras) as total_runs,
+            COUNT(*) as total_balls,
+            COUNT(CASE WHEN player_out = '{safe_p1}' OR player_out = '{safe_p2}' THEN 1 END) as dismissals,
+            COUNT(DISTINCT match_id) as total_matches
+        FROM deliveries
+        WHERE (batter = '{safe_p1}' AND non_striker = '{safe_p2}')
+           OR (batter = '{safe_p2}' AND non_striker = '{safe_p1}')
+    """
+    df = load_data(query)
+    
+    if df.empty or pd.isna(df['total_balls'].iloc[0]) or df['total_balls'].iloc[0] == 0:
+        return 0, 0, 0, 0
+        
+    runs = int(df['total_runs'].iloc[0])
+    balls = int(df['total_balls'].iloc[0])
+    outs = int(df['dismissals'].iloc[0])
+    matches = int(df['total_matches'].iloc[0])
+    
+    return runs, balls, outs, matches
+
+@st.cache_data(ttl=3600)
+def get_partnership_strength(player1, player2):
+    """
+    Returns a normalized scalar (0.0 to 1.0) representing how strong player1 and player2 bat together.
+    Based on their historical run rate and average partnership runs.
+    """
+    safe_p1 = player1.replace("'", "''")
+    safe_p2 = player2.replace("'", "''")
+    query = f"""
+        SELECT
+            SUM(runs_batter + runs_extras) as total_runs,
+            COUNT(*) as total_balls,
+            COUNT(CASE WHEN player_out = '{safe_p1}' OR player_out = '{safe_p2}' THEN 1 END) as dismissals
+        FROM deliveries
+        WHERE (batter = '{safe_p1}' AND non_striker = '{safe_p2}')
+           OR (batter = '{safe_p2}' AND non_striker = '{safe_p1}')
+    """
+    df = load_data(query)
+    
+    if df.empty or pd.isna(df['total_balls'].iloc[0]) or df['total_balls'].iloc[0] == 0:
+        return 0.5 # Default neutral strength if no history
+        
+    runs = float(df['total_runs'].iloc[0])
+    balls = float(df['total_balls'].iloc[0])
+    outs = float(df['dismissals'].iloc[0])
+    
+    # Partnership SR (Scale: 120 SR = neutral, higher is better)
+    sr = (runs / balls) * 100.0 if balls > 0 else 0
+    # Average partnership runs before getting out
+    avg = runs / outs if outs > 0 else runs
+    
+    # Normalize
+    norm_sr = min(max((sr - 80) / 100.0, 0.0), 1.0) # 80SR->0, 180SR->1
+    norm_avg = min(max((avg - 10) / 60.0, 0.0), 1.0) # 10 avg->0, 70 avg->1
+    
+    return (norm_sr * 0.5) + (norm_avg * 0.5)
+
 # ==========================================
 # BOWLER PROFILE ANALYTICS (TAB 5)
 # ==========================================
 
+@st.cache_data(ttl=3600)
 def get_all_bowlers():
     query = "SELECT DISTINCT bowler FROM deliveries ORDER BY bowler"
     df = load_data(query)
     return df['bowler'].tolist()
 
+@st.cache_data(ttl=3600)
 def get_bowler_kpis(bowler_name):
     safe_name = bowler_name.replace("'", "''")
     query = f"""
@@ -210,6 +287,7 @@ def get_bowler_kpis(bowler_name):
     
     return wickets, runs, economy, average, sr
 
+@st.cache_data(ttl=3600)
 def get_bowler_economy_by_phase(bowler_name):
     safe_name = bowler_name.replace("'", "''")
     query = f"""
@@ -238,6 +316,7 @@ def get_bowler_economy_by_phase(bowler_name):
     df['Economy'] = df.apply(lambda row: round(row['total_runs'] / (row['total_balls'] / 6.0), 2) if row['total_balls'] > 0 else 0, axis=1)
     return df[['Phase', 'Economy']]
 
+@st.cache_data(ttl=3600)
 def get_bowler_wickets_by_phase(bowler_name):
     safe_name = bowler_name.replace("'", "''")
     query = f"""
@@ -263,6 +342,7 @@ def get_bowler_wickets_by_phase(bowler_name):
         return pd.DataFrame({"Phase": ["Powerplay", "Middle Overs", "Death Overs"], "Wickets": [0, 0, 0]})
     return df[['Phase', 'Wickets']]
 
+@st.cache_data(ttl=3600)
 def get_bowler_average_by_batsman_type(bowler_name):
     safe_name = bowler_name.replace("'", "''")
     query = f"""
@@ -300,6 +380,7 @@ def get_bowler_average_by_batsman_type(bowler_name):
     
     return df[['Batsman Type', 'Average', 'Economy', 'Strike Rate', 'Wickets']]
 
+@st.cache_data(ttl=3600)
 def get_bowler_kpis_by_batsman_style(bowler_name, batsman_style):
     safe_name = bowler_name.replace("'", "''")
     safe_style = batsman_style.replace("'", "''")
@@ -327,6 +408,7 @@ def get_bowler_kpis_by_batsman_style(bowler_name, batsman_style):
     
     return economy, sr, wickets
 
+@st.cache_data(ttl=3600)
 def get_historical_context(batter_name, phase_name, style_name):
     safe_name = batter_name.replace("'", "''")
     

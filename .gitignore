@@ -17,3 +17,5 @@ data/processed/*.sqlite
 # OS metadata
 .DS_Store
 Thumbs.db
+*.db
+~$*.pptx
