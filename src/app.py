@@ -657,12 +657,16 @@ with tab3:
                 max_v_line = max([p_line_scores.get(b.get('line', 'Unknown'), 0.5) for b in sequence_data]) if p_line_scores else 0.5
                 max_v_shot = max([p_shot_scores.get(b.get('shot', 'Unknown'), 0.5) for b in sequence_data]) if p_shot_scores else 0.5
                 
-                # Fluid Scaling Math
-                composite_vuln = (max_v_len * max_v_line * max_v_shot)
-                if composite_vuln > 0.25: # High Vulnerability Threshold
-                    risk_score = min(risk_score + 0.45, 0.95)
-                elif composite_vuln < 0.05: # High Safety Threshold
-                    risk_score = max(risk_score - 0.35, 0.05)
+                # Fluid Scaling Math (Subtle adjustments for presentation)
+                # Calculates the true continuous mean vulnerability of the sequence
+                mean_v_len = sum([p_len_scores.get(b.get('length', 'Unknown'), 0.5) for b in sequence_data]) / len(sequence_data) if p_len_scores else 0.5
+                mean_v_line = sum([p_line_scores.get(b.get('line', 'Unknown'), 0.5) for b in sequence_data]) / len(sequence_data) if p_line_scores else 0.5
+                mean_v_shot = sum([p_shot_scores.get(b.get('shot', 'Unknown'), 0.5) for b in sequence_data]) / len(sequence_data) if p_shot_scores else 0.5
+                
+                # We apply a very subtle mathematical shift (+/- 0.01 to 0.05) to the PyTorch output
+                # This ensures the exact decimal points shift dynamically when Ball 1 is altered, without breaking the model's core prediction.
+                subtle_shift = ((mean_v_len - 0.5) + (mean_v_line - 0.5) + (mean_v_shot - 0.5)) * 0.04
+                risk_score = min(max(risk_score + subtle_shift, 0.01), 0.99)
                     
                 if nlp_wicket_detected:
                     risk_score = min(risk_score + 0.08, 1.0)
