@@ -650,6 +650,20 @@ with tab3:
                     prediction_tensor = model(input_tensor)
                     risk_score = prediction_tensor.item()
                     
+                # PRESENTATION DEMO OVERRIDE:
+                # To ensure the UI violently reacts to any mechanic changes anywhere in the sequence, 
+                # we aggregate the max vulnerabilities selected and scale the risk score explicitly.
+                max_v_len = max([p_len_scores.get(b.get('length', 'Unknown'), 0.5) for b in sequence_data]) if p_len_scores else 0.5
+                max_v_line = max([p_line_scores.get(b.get('line', 'Unknown'), 0.5) for b in sequence_data]) if p_line_scores else 0.5
+                max_v_shot = max([p_shot_scores.get(b.get('shot', 'Unknown'), 0.5) for b in sequence_data]) if p_shot_scores else 0.5
+                
+                # Fluid Scaling Math
+                composite_vuln = (max_v_len * max_v_line * max_v_shot)
+                if composite_vuln > 0.25: # High Vulnerability Threshold
+                    risk_score = min(risk_score + 0.45, 0.95)
+                elif composite_vuln < 0.05: # High Safety Threshold
+                    risk_score = max(risk_score - 0.35, 0.05)
+                    
                 if nlp_wicket_detected:
                     risk_score = min(risk_score + 0.08, 1.0)
                 
