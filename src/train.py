@@ -75,14 +75,13 @@ def generate_mock_data(num_samples=100, seq_len=6, input_size=59):
         if bat_career_avg < 0.4: risk_prob += 0.10
         if bat_career_sr < 0.5: risk_prob += 0.05
         
-        # MASSIVE NLP Matrix Pressure (Forces LSTM to learn the NLP trap)
-        if v_len > 0.7: risk_prob += 0.40
-        if v_line > 0.7: risk_prob += 0.40
-        if v_shot > 0.7: risk_prob += 0.40
+        # Fluid Continuous Math for NLP Vulnerability Injection
+        # Transforming the 3 continuous mechanic arrays into an exponential growth/decay curve
+        nlp_exponent = (v_len - 0.5) + (v_line - 0.5) + (v_shot - 0.5)
+        nlp_multiplier = np.exp(nlp_exponent * 1.5)  # Scale multiplier curve
         
-        if v_len < 0.3: risk_prob -= 0.30
-        if v_line < 0.3: risk_prob -= 0.30
-        if v_shot < 0.3: risk_prob -= 0.30
+        # Smoothly apply the fluid transformation to the baseline risk
+        risk_prob = risk_prob * nlp_multiplier
         
         risk_prob = min(max(risk_prob, 0.0), 1.0)
         y_val = 1.0 if np.random.rand() < risk_prob else 0.0
