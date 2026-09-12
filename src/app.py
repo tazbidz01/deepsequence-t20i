@@ -639,7 +639,7 @@ with tab3:
                     str_runs=str_runs, str_balls=str_balls, nstr_runs=nstr_runs, nstr_balls=nstr_balls,
                     tb_runs=tb_runs, tb_wkts=tb_wkts, sb_runs=sb_runs, sb_wkts=sb_wkts,
                     bat_career_avg=bat_career_avg, bat_career_sr=bat_career_sr,
-                    partnership_strength=ps_score, crr=crr, wickets_fallen=match_wkts, rrr=rrr
+                    partnership_strength=ps_score, crr=crr, wickets_fallen=match_wkts, rrr=rrr, p_line_scores=p_line_scores, p_len_scores=p_len_scores, p_shot_scores=p_shot_scores
                 )
                 
                 if TORCH_AVAILABLE:

@@ -44,7 +44,8 @@ class SequencePreprocessor:
                             str_runs=0, str_balls=0, nstr_runs=0, nstr_balls=0, 
                             tb_runs=0, tb_wkts=0, sb_runs=0, sb_wkts=0,
                             bat_career_avg=25.0, bat_career_sr=120.0,
-                            partnership_strength=0.5, crr=7.5, wickets_fallen=0, rrr=7.5):
+                            partnership_strength=0.5, crr=7.5, wickets_fallen=0, rrr=7.5,
+                            p_line_scores=None, p_len_scores=None, p_shot_scores=None):
         """
         Converts a list of dicts (deliveries) into a PyTorch-ready tensor.
         Extracts categorical features and scales continuous variables.
@@ -177,9 +178,21 @@ class SequencePreprocessor:
             raw_line = delivery.get('line', 'Unknown')
             raw_shot = delivery.get('shot', 'Unknown')
             
-            v_len = LENGTH_VULN_SCORES.get(raw_len, 0.5)
-            v_line = LINE_VULN_SCORES.get(raw_line, 0.5)
-            v_shot = SHOT_VULN_SCORES.get(raw_shot, 0.5)
+            # Use player specific scores if available, else fallback to global
+            if p_len_scores:
+                v_len = p_len_scores.get(raw_len, 0.5)
+            else:
+                v_len = LENGTH_VULN_SCORES.get(raw_len, 0.5)
+                
+            if p_line_scores:
+                v_line = p_line_scores.get(raw_line, 0.5)
+            else:
+                v_line = LINE_VULN_SCORES.get(raw_line, 0.5)
+                
+            if p_shot_scores:
+                v_shot = p_shot_scores.get(raw_shot, 0.5)
+            else:
+                v_shot = SHOT_VULN_SCORES.get(raw_shot, 0.5)
 
             # Build the 59-Dimensional delivery vector
             vector = [run_scaled] + len_vec + line_vec + shot_vec + phase_vec + style_vec + [
