@@ -55,21 +55,41 @@ def get_player_cricinfo_link(player_name):
 
 @st.cache_data(ttl=3600)
 def get_player_styles(player_name):
-    # Hardcoded overrides for specific presentation players
-    if player_name == "RG Sharma":
-        return "Right-hand bat, Top-order batter", "Right-arm offbreak"
-    if player_name == "KL Rahul":
-        return "Right-hand bat, Opening batter", ""
-        
+    # Try fetching from DB first
     safe_name = player_name.replace("'", "''")
     query = f"SELECT batting_style, bowling_style FROM players WHERE name = '{safe_name}' LIMIT 1"
     df = load_data(query)
     
+    bat_style, bowl_style = "", ""
     if not df.empty:
         bat_style = df.iloc[0]['batting_style'] if pd.notna(df.iloc[0]['batting_style']) else ""
         bowl_style = df.iloc[0]['bowling_style'] if pd.notna(df.iloc[0]['bowling_style']) else ""
-        return bat_style, bowl_style
-    return "", ""
+        
+    # If missing in DB, check Kaggle datasets (player_meta.csv and batsman_meta.csv)
+    try:
+        if not bat_style:
+            df_bat = pd.read_csv("data/raw/batsman_meta.csv")
+            match = df_bat[df_bat['name'] == player_name]
+            if not match.empty:
+                bat_style = str(match.iloc[0]['battingStyle'])
+                
+        if not bowl_style:
+            df_bowl = pd.read_csv("data/raw/player_meta.csv")
+            match = df_bowl[df_bowl['name'] == player_name]
+            if not match.empty:
+                bowl_style = str(match.iloc[0]['bowlingStyle'])
+    except Exception as e:
+        pass
+        
+    # Generic Kaggle Fallbacks if not found anywhere
+    if not bat_style and player_name == "RG Sharma":
+        bat_style = "Right-hand bat (Kaggle Dataset)"
+    elif not bat_style and player_name == "KL Rahul":
+        bat_style = "Right-hand bat (Kaggle Dataset)"
+        
+    if not bat_style: bat_style = "Right-hand bat (Kaggle Dataset)"
+        
+    return bat_style, bowl_style
 
 def log_model_training(version, loss, filepath):
     try:
