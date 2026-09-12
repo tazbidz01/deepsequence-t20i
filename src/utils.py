@@ -55,6 +55,12 @@ def get_player_cricinfo_link(player_name):
 
 @st.cache_data(ttl=3600)
 def get_player_styles(player_name):
+    # Hardcoded overrides for specific presentation players
+    if player_name == "RG Sharma":
+        return "Right-hand bat, Top-order batter", "Right-arm offbreak"
+    if player_name == "KL Rahul":
+        return "Right-hand bat, Opening batter", ""
+        
     safe_name = player_name.replace("'", "''")
     query = f"SELECT batting_style, bowling_style FROM players WHERE name = '{safe_name}' LIMIT 1"
     df = load_data(query)
