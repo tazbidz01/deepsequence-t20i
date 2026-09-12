@@ -282,66 +282,7 @@ with tab2:
         with col_m3:
             st.metric("Extracted Shot Intent", features['shot'], help="ML classification applied for Shot Intent")
 
-        # --- HF NLP INSIGHTS FOR EXTRACTED BATTER ---
-        extracted_batter = features.get('batter', 'Unknown')
-        if extracted_batter != 'Unknown':
-            st.markdown(f"### NLP Machine Learning Insights for {extracted_batter} (Hugging Face Dataset)")
-            try:
-                import pandas as pd
-                df_hf = pd.read_csv("data/processed/hf_commentary_labels.csv")
-                last_name = extracted_batter.split()[-1]
-                
-                player_rows = df_hf[df_hf['text'].str.contains(last_name, case=False, na=False)]
-                if not player_rows.empty:
-                    stats = {'wickets': 0, 'dots': 0, 'balls': 0, 'lines': {}, 'lengths': {}, 'shots': {}}
-                    for _, row in player_rows.iterrows():
-                        text = str(row['text']).lower()
-                        line, length, shot = str(row['line']), str(row['length']), str(row['shot'])
-                        
-                        is_vuln = 0
-                        if 'out' in text or 'caught' in text or 'bowled' in text or 'lbw' in text or 'dismissal' in text:
-                            stats['wickets'] += 1
-                            is_vuln = 1
-                        elif 'dot' in text or 'no run' in text:
-                            stats['dots'] += 1
-                            is_vuln = 1
-                            
-                        stats['balls'] += 1
-                        if line != 'Unknown' and line != 'nan':
-                            if line not in stats['lines']: stats['lines'][line] = {'faced': 0, 'vuln': 0}
-                            stats['lines'][line]['faced'] += 1
-                            stats['lines'][line]['vuln'] += is_vuln
-                        if length != 'Unknown' and length != 'nan':
-                            if length not in stats['lengths']: stats['lengths'][length] = {'faced': 0, 'vuln': 0}
-                            stats['lengths'][length]['faced'] += 1
-                            stats['lengths'][length]['vuln'] += is_vuln
-                        if shot != 'Unknown' and shot != 'nan':
-                            if shot not in stats['shots']: stats['shots'][shot] = {'faced': 0, 'vuln': 0}
-                            stats['shots'][shot]['faced'] += 1
-                            stats['shots'][shot]['vuln'] += is_vuln
-                            
-                    worst_line = max(stats['lines'].keys(), key=lambda k: stats['lines'][k]['vuln'] / max(1, stats['lines'][k]['faced'])) if stats['lines'] else 'Unknown'
-                    worst_len = max(stats['lengths'].keys(), key=lambda k: stats['lengths'][k]['vuln'] / max(1, stats['lengths'][k]['faced'])) if stats['lengths'] else 'Unknown'
-                    worst_shot = max(stats['shots'].keys(), key=lambda k: stats['shots'][k]['vuln'] / max(1, stats['shots'][k]['faced'])) if stats['shots'] else 'Unknown'
-                    
-                    st.error(f"🚨 **CRITICAL VULNERABILITY DETECTED:** Historical NLP commentary analysis from **{stats['balls']}** textual deliveries indicates **{extracted_batter}** is highly susceptible to **{worst_len.upper()}** deliveries on the **{worst_line.upper()}** line, especially when attempting the **{worst_shot.upper()}** shot.")
-                    
-                    c1, c2, c3 = st.columns(3)
-                    if stats['lines']:
-                        c1.markdown("**Line Vulnerability**")
-                        c1.dataframe(pd.DataFrame([{'Mechanic': k, 'Faced': v['faced'], 'Vuln': v['vuln'], 'Risk %': f"{(v['vuln']/max(1, v['faced']))*100:.1f}%"} for k, v in stats['lines'].items()]), use_container_width=True, hide_index=True)
-                    if stats['lengths']:
-                        c2.markdown("**Length Vulnerability**")
-                        c2.dataframe(pd.DataFrame([{'Mechanic': k, 'Faced': v['faced'], 'Vuln': v['vuln'], 'Risk %': f"{(v['vuln']/max(1, v['faced']))*100:.1f}%"} for k, v in stats['lengths'].items()]), use_container_width=True, hide_index=True)
-                    if stats['shots']:
-                        c3.markdown("**Shot Vulnerability**")
-                        c3.dataframe(pd.DataFrame([{'Mechanic': k, 'Faced': v['faced'], 'Vuln': v['vuln'], 'Risk %': f"{(v['vuln']/max(1, v['faced']))*100:.1f}%"} for k, v in stats['shots'].items()]), use_container_width=True, hide_index=True)
-                else:
-                    st.info(f"No specific NLP vulnerabilities found for {extracted_batter} in the Hugging Face dataset.")
-            except Exception as e:
-                pass
-
-# --- TAB 3: LIVE SEQUENCE SIMULATOR (PyTorch Integration) ---
+        # --- TAB 3: LIVE SEQUENCE SIMULATOR (PyTorch Integration) ---
 with tab3:
     st.markdown(f"### PyTorch LSTM Simulation: {selected_batsman} vs {target_bowler}")
     st.markdown("Build a dynamic sequence of deliveries faced by the batsman to predict the next-ball error probability using our PyTorch LSTM model.")
