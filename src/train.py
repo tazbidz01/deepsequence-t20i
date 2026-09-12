@@ -75,12 +75,16 @@ def generate_mock_data(num_samples=100, seq_len=6, input_size=59):
         if bat_career_avg < 0.4: risk_prob += 0.10
         if bat_career_sr < 0.5: risk_prob += 0.05
         
-        # Add NLP Matrix Pressure
-        if v_len > 0.7: risk_prob += 0.15
-        if v_line > 0.7: risk_prob += 0.15
-        if v_shot > 0.7: risk_prob += 0.15
+        # MASSIVE NLP Matrix Pressure (Forces LSTM to learn the NLP trap)
+        if v_len > 0.7: risk_prob += 0.40
+        if v_line > 0.7: risk_prob += 0.40
+        if v_shot > 0.7: risk_prob += 0.40
         
-        risk_prob = min(risk_prob, 1.0)
+        if v_len < 0.3: risk_prob -= 0.30
+        if v_line < 0.3: risk_prob -= 0.30
+        if v_shot < 0.3: risk_prob -= 0.30
+        
+        risk_prob = min(max(risk_prob, 0.0), 1.0)
         y_val = 1.0 if np.random.rand() < risk_prob else 0.0
         y_vals.append([y_val])
         
@@ -93,12 +97,12 @@ def train_model():
     
     # Member 1 Task: Focal Loss
     criterion = FocalLoss(alpha=0.8, gamma=2.0)
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    optimizer = optim.Adam(model.parameters(), lr=0.005)
     
-    print("Generating 59-Dimensional Dummy T20I Sequence Data (class imbalance: 95% Safe, 5% Out)...")
-    X_train, y_train = generate_mock_data(num_samples=200)
+    print("Generating 59-Dimensional Dummy T20I Sequence Data...")
+    X_train, y_train = generate_mock_data(num_samples=8000)
     
-    epochs = 10
+    epochs = 40
     final_loss = 0.0
     
     print("Starting Training Loop:")
