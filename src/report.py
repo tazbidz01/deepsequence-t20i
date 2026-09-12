@@ -112,24 +112,86 @@ def generate_tactical_pdf(player_name, player_type="Batsman"):
         elements.append(Spacer(1, 20))
         
         # 4. NLP Vulnerability Matrix
-        elements.append(Paragraph("4. NLP Machine Learning Insights", subtitle_style))
+        elements.append(Paragraph("4. NLP Machine Learning Insights (Hugging Face Dataset)", subtitle_style))
         try:
-            df_vuln = pd.read_csv("data/processed/global_vulnerabilities.csv")
-            player_vuln = df_vuln[df_vuln['Player'] == player_name]
-            if not player_vuln.empty:
-                p_line = player_vuln.iloc[0]['Primary_Weakness_Line']
-                p_length = player_vuln.iloc[0]['Primary_Weakness_Length']
+            import pandas as pd
+            df_hf = pd.read_csv("data/processed/hf_commentary_labels.csv")
+            last_name = player_name.split()[-1]
+            
+            # Find all deliveries mentioning this player
+            player_rows = df_hf[df_hf['text'].str.contains(last_name, case=False, na=False)]
+            
+            if not player_rows.empty:
+                stats = {'wickets': 0, 'dots': 0, 'balls': 0, 'lines': {}, 'lengths': {}, 'shots': {}}
                 
-                alert_text = f"CRITICAL VULNERABILITY: Historical NLP commentary analysis indicates {player_name} is highly susceptible to {p_length.upper()} deliveries on the {p_line.upper()} line."
+                for _, row in player_rows.iterrows():
+                    text = str(row['text']).lower()
+                    line = str(row['line'])
+                    length = str(row['length'])
+                    shot = str(row['shot'])
+                    
+                    # Heuristic outcome parsing
+                    is_vuln = 0
+                    if 'out' in text or 'caught' in text or 'bowled' in text or 'lbw' in text or 'dismissal' in text:
+                        stats['wickets'] += 1
+                        is_vuln = 1
+                    elif 'dot' in text or 'no run' in text:
+                        stats['dots'] += 1
+                        is_vuln = 1
+                        
+                    stats['balls'] += 1
+                    
+                    if line != 'Unknown' and line != 'nan':
+                        if line not in stats['lines']: stats['lines'][line] = {'faced': 0, 'vuln': 0}
+                        stats['lines'][line]['faced'] += 1
+                        stats['lines'][line]['vuln'] += is_vuln
+                        
+                    if length != 'Unknown' and length != 'nan':
+                        if length not in stats['lengths']: stats['lengths'][length] = {'faced': 0, 'vuln': 0}
+                        stats['lengths'][length]['faced'] += 1
+                        stats['lengths'][length]['vuln'] += is_vuln
+                        
+                    if shot != 'Unknown' and shot != 'nan':
+                        if shot not in stats['shots']: stats['shots'][shot] = {'faced': 0, 'vuln': 0}
+                        stats['shots'][shot]['faced'] += 1
+                        stats['shots'][shot]['vuln'] += is_vuln
+                        
+                # Calculate worst mechanics
+                worst_line = max(stats['lines'].keys(), key=lambda k: stats['lines'][k]['vuln'] / max(1, stats['lines'][k]['faced'])) if stats['lines'] else 'Unknown'
+                worst_len = max(stats['lengths'].keys(), key=lambda k: stats['lengths'][k]['vuln'] / max(1, stats['lengths'][k]['faced'])) if stats['lengths'] else 'Unknown'
+                worst_shot = max(stats['shots'].keys(), key=lambda k: stats['shots'][k]['vuln'] / max(1, stats['shots'][k]['faced'])) if stats['shots'] else 'Unknown'
+                
+                alert_text = f"CRITICAL VULNERABILITY DETECTED: Historical NLP commentary analysis from {stats['balls']} textual deliveries indicates {player_name} is highly susceptible to {worst_len.upper()} deliveries on the {worst_line.upper()} line, especially when attempting the {worst_shot.upper()} shot."
                 elements.append(Paragraph(alert_text, alert_style))
                 
-                # Bowling Plan Summary
-                plan_text = f"RECOMMENDED BOWLING PLAN: Based on aggregate data, the optimal attack against {player_name} is to consistently bowl {p_length} lengths targeted {p_line}. Maintain this line to exploit their primary sequence weakness."
-                elements.append(Paragraph(plan_text, normal_style))
+                # Draw the HF Vulnerability Breakdown Table
+                elements.append(Spacer(1, 10))
+                hf_table_data = [["Delivery Mechanic", "Balls Faced", "Vulnerability (Wickets/Dots)", "Risk Score %"]]
+                
+                for k, v in stats['lines'].items(): 
+                    pct = (v['vuln'] / max(1, v['faced'])) * 100
+                    hf_table_data.append([f"Line: {k}", str(v['faced']), str(v['vuln']), f"{pct:.1f}%"])
+                for k, v in stats['lengths'].items(): 
+                    pct = (v['vuln'] / max(1, v['faced'])) * 100
+                    hf_table_data.append([f"Length: {k}", str(v['faced']), str(v['vuln']), f"{pct:.1f}%"])
+                for k, v in stats['shots'].items(): 
+                    pct = (v['vuln'] / max(1, v['faced'])) * 100
+                    hf_table_data.append([f"Shot: {k}", str(v['faced']), str(v['vuln']), f"{pct:.1f}%"])
+                    
+                t_hf = Table(hf_table_data, colWidths=[140, 80, 160, 100])
+                t_hf.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,0), colors.darkred),
+                    ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+                    ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                    ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                    ('GRID', (0,0), (-1,-1), 1, colors.black)
+                ]))
+                elements.append(t_hf)
+                
             else:
-                elements.append(Paragraph("No specific NLP vulnerabilities found for this player.", normal_style))
+                elements.append(Paragraph(f"No specific NLP vulnerabilities found for {player_name} in the Hugging Face dataset.", normal_style))
         except Exception as e:
-            elements.append(Paragraph("NLP Data not available.", normal_style))
+            elements.append(Paragraph(f"NLP Data not available: {e}", normal_style))
             
     else:
         # Bowler Profile

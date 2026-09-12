@@ -103,3 +103,29 @@ MODEL_HYPERPARAMS = {
     "focal_alpha": 0.92, # Balance coefficient to prioritize dismissal events
     "focal_gamma": 2.0   # Focus parameter to downweight easy-to-classify runs
 }
+# --- Vulnerability Matrices ---
+LINE_VULN_SCORES = {
+    'Outside Off': 0.3,
+    'Off Stump': 0.5,
+    'Middle Stump': 0.4,
+    'Leg Stump': 0.6,
+    'Down Leg': 0.8,
+    'Unknown': 0.5
+}
+LENGTH_VULN_SCORES = {
+    'Yorker': 0.9,
+    'Full': 0.6,
+    'Slot': 0.2,
+    'Good Length': 0.4,
+    'Short': 0.7,
+    'Unknown': 0.5
+}
+SHOT_VULN_SCORES = {
+    'Defend': 0.1,
+    'Drive': 0.4,
+    'Pull': 0.6,
+    'Cut': 0.5,
+    'Flick': 0.5,
+    'Sweep': 0.7,
+    'Unknown': 0.5
+}

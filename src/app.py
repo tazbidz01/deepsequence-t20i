@@ -16,8 +16,9 @@ except Exception as e:
 # Add the project root to sys.path so we can import from src
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.utils import get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry, get_strike_rate_by_phase, get_dismissals_by_bowler_style, get_historical_context, get_strike_rate_by_bowler_style, get_average_by_bowler_style, get_all_bowlers, get_bowler_kpis, get_bowler_economy_by_phase, get_bowler_average_by_batsman_type, get_bowler_kpis_by_batsman_style, get_player_styles
+from src.utils import get_player_specific_vulnerability, get_all_batsmen, get_batsman_kpis, get_player_cricinfo_link, get_model_registry, get_strike_rate_by_phase, get_dismissals_by_bowler_style, get_historical_context, get_strike_rate_by_bowler_style, get_average_by_bowler_style, get_all_bowlers, get_bowler_kpis, get_bowler_economy_by_phase, get_bowler_average_by_batsman_type, get_bowler_kpis_by_batsman_style, get_player_styles
 from src.features import SequencePreprocessor
+from src.config import LINE_VULN_SCORES, LENGTH_VULN_SCORES, SHOT_VULN_SCORES
 from src.model import get_model
 from src.nlp import CommentaryParser
 
@@ -161,14 +162,89 @@ with tab1:
         df_avg_style = get_average_by_bowler_style(selected_batsman)
         st.bar_chart(df_avg_style.set_index("Bowler Sub-Style"), color="#E53E3E")
 
-    # --- ML VULNERABILITY ALERT ---
+    # --- ML VULNERABILITY ALERT (Hugging Face) ---
+    st.markdown("### NLP Machine Learning Insights (Hugging Face Dataset)")
     try:
-        df_vuln = pd.read_csv("data/processed/global_vulnerabilities.csv")
-        player_vuln = df_vuln[df_vuln['Player'] == selected_batsman]
-        if not player_vuln.empty:
-            p_line = player_vuln.iloc[0]['Primary_Weakness_Line']
-            p_length = player_vuln.iloc[0]['Primary_Weakness_Length']
-            st.error(f"🚨 **MACHINE LEARNING VULNERABILITY DETECTED:** Historical NLP commentary analysis indicates **{selected_batsman}** is highly susceptible to **{p_length.upper()}** deliveries on the **{p_line.upper()}** line.")
+        import pandas as pd
+        df_hf = pd.read_csv("data/processed/hf_commentary_labels.csv")
+        last_name = selected_batsman.split()[-1]
+        
+        # Find all deliveries mentioning this player
+        player_rows = df_hf[df_hf['text'].str.contains(last_name, case=False, na=False)]
+        
+        if not player_rows.empty:
+            stats = {'wickets': 0, 'dots': 0, 'balls': 0, 'lines': {}, 'lengths': {}, 'shots': {}}
+            
+            for _, row in player_rows.iterrows():
+                text = str(row['text']).lower()
+                line = str(row['line'])
+                length = str(row['length'])
+                shot = str(row['shot'])
+                
+                is_vuln = 0
+                if 'out' in text or 'caught' in text or 'bowled' in text or 'lbw' in text or 'dismissal' in text:
+                    stats['wickets'] += 1
+                    is_vuln = 1
+                elif 'dot' in text or 'no run' in text:
+                    stats['dots'] += 1
+                    is_vuln = 1
+                    
+                stats['balls'] += 1
+                
+                if line != 'Unknown' and line != 'nan':
+                    if line not in stats['lines']: stats['lines'][line] = {'faced': 0, 'vuln': 0}
+                    stats['lines'][line]['faced'] += 1
+                    stats['lines'][line]['vuln'] += is_vuln
+                    
+                if length != 'Unknown' and length != 'nan':
+                    if length not in stats['lengths']: stats['lengths'][length] = {'faced': 0, 'vuln': 0}
+                    stats['lengths'][length]['faced'] += 1
+                    stats['lengths'][length]['vuln'] += is_vuln
+                    
+                if shot != 'Unknown' and shot != 'nan':
+                    if shot not in stats['shots']: stats['shots'][shot] = {'faced': 0, 'vuln': 0}
+                    stats['shots'][shot]['faced'] += 1
+                    stats['shots'][shot]['vuln'] += is_vuln
+                    
+            # Calculate worst mechanics
+            worst_line = max(stats['lines'].keys(), key=lambda k: stats['lines'][k]['vuln'] / max(1, stats['lines'][k]['faced'])) if stats['lines'] else 'Unknown'
+            worst_len = max(stats['lengths'].keys(), key=lambda k: stats['lengths'][k]['vuln'] / max(1, stats['lengths'][k]['faced'])) if stats['lengths'] else 'Unknown'
+            worst_shot = max(stats['shots'].keys(), key=lambda k: stats['shots'][k]['vuln'] / max(1, stats['shots'][k]['faced'])) if stats['shots'] else 'Unknown'
+            
+            st.error(f"🚨 **CRITICAL VULNERABILITY DETECTED:** Historical NLP commentary analysis from **{stats['balls']}** textual deliveries indicates **{selected_batsman}** is highly susceptible to **{worst_len.upper()}** deliveries on the **{worst_line.upper()}** line, especially when attempting the **{worst_shot.upper()}** shot.")
+            
+            # Draw Dataframes for UI
+            c1, c2, c3 = st.columns(3)
+            
+            # Line Data
+            if stats['lines']:
+                df_lines = pd.DataFrame([{
+                    'Mechanic': k, 'Faced': v['faced'], 'Vuln': v['vuln'], 
+                    'Risk %': f"{(v['vuln']/max(1, v['faced']))*100:.1f}%"
+                } for k, v in stats['lines'].items()])
+                c1.markdown("**Line Vulnerability**")
+                c1.dataframe(df_lines, use_container_width=True, hide_index=True)
+                
+            # Length Data
+            if stats['lengths']:
+                df_lengths = pd.DataFrame([{
+                    'Mechanic': k, 'Faced': v['faced'], 'Vuln': v['vuln'], 
+                    'Risk %': f"{(v['vuln']/max(1, v['faced']))*100:.1f}%"
+                } for k, v in stats['lengths'].items()])
+                c2.markdown("**Length Vulnerability**")
+                c2.dataframe(df_lengths, use_container_width=True, hide_index=True)
+                
+            # Shot Data
+            if stats['shots']:
+                df_shots = pd.DataFrame([{
+                    'Mechanic': k, 'Faced': v['faced'], 'Vuln': v['vuln'], 
+                    'Risk %': f"{(v['vuln']/max(1, v['faced']))*100:.1f}%"
+                } for k, v in stats['shots'].items()])
+                c3.markdown("**Shot Vulnerability**")
+                c3.dataframe(df_shots, use_container_width=True, hide_index=True)
+                
+        else:
+            st.info(f"No specific NLP vulnerabilities found for {selected_batsman} in the Hugging Face dataset.")
     except Exception as e:
         pass
 
@@ -394,6 +470,36 @@ with tab3:
         # Pad with zeros if fewer lines provided
         while len(sequence_data) < seq_length:
             sequence_data.append({'run': 0, 'length': 'Good Length', 'line': 'Unknown', 'shot': 'Unknown', 'batter': 'Unknown', 'bowler': 'Unknown'})
+
+    with st.expander("🛡️ Tactical Vulnerability Matrix (Line, Length, Shot)"):
+        st.markdown("This matrix evaluates the specific baseline vulnerability mapped to each delivery mechanic. These 3 scores are dynamically injected into the PyTorch LSTM tensor as continuous dimensions to weight the risk of the incoming ball.")
+        
+        # Fetch dynamic player-specific vulnerability scores
+        p_line_scores, p_len_scores, p_shot_scores = get_player_specific_vulnerability(selected_batsman)
+        
+        # Calculate highest vulnerability targets
+        worst_len = max([k for k in p_len_scores.keys() if k != 'Unknown'], key=lambda k: p_len_scores[k])
+        worst_line = max([k for k in p_line_scores.keys() if k != 'Unknown'], key=lambda k: p_line_scores[k])
+        worst_shot = max([k for k in p_shot_scores.keys() if k != 'Unknown'], key=lambda k: p_shot_scores[k])
+        
+        st.error(f"🚨 **MACHINE LEARNING VULNERABILITY DETECTED:** Historical NLP analysis indicates **{selected_batsman}** is highly susceptible to **{worst_len.upper()}** deliveries on the **{worst_line.upper()}** line, especially when attempting to play the **{worst_shot.upper()}** shot.")
+        
+        vc1, vc2, vc3 = st.columns(3)
+        with vc1:
+            st.markdown("**Length Vulnerability**")
+            for k, v in p_len_scores.items():
+                if k != 'Unknown':
+                    st.progress(v, text=f"{k} ({v})")
+        with vc2:
+            st.markdown("**Line Vulnerability**")
+            for k, v in p_line_scores.items():
+                if k != 'Unknown':
+                    st.progress(v, text=f"{k} ({v})")
+        with vc3:
+            st.markdown("**Shot Vulnerability**")
+            for k, v in p_shot_scores.items():
+                if k != 'Unknown':
+                    st.progress(v, text=f"{k} ({v})")
 
     if st.button("Predict PyTorch Vulnerability", type="primary"):
         # Determine Batters and Bowlers based on Mode

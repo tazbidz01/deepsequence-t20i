@@ -26,7 +26,7 @@ class FocalLoss(nn.Module):
         focal_loss = self.alpha * (1 - pt) ** self.gamma * bce_loss
         return torch.mean(focal_loss)
 
-def generate_mock_data(num_samples=100, seq_len=6, input_size=56):
+def generate_mock_data(num_samples=100, seq_len=6, input_size=59):
     # Generates mock tensor data for training (batch, seq, features)
     X = torch.rand(num_samples, seq_len, input_size)
     y_vals = []
@@ -52,20 +52,33 @@ def generate_mock_data(num_samples=100, seq_len=6, input_size=56):
         except IndexError:
             bat_career_avg = 0.5
             bat_career_sr = 0.5
+            
+        # New 59D NLP Vulnerability Matrix
+        try:
+            v_len = last_ball[56].item()
+            v_line = last_ball[57].item()
+            v_shot = last_ball[58].item()
+        except IndexError:
+            v_len, v_line, v_shot = 0.5, 0.5, 0.5
         
         # Heavily weight the targets based on career KPIs
         risk_prob = 0.05
-        if bat_avg_vs_style < 0.4: risk_prob += 0.20
-        if b_career_sr < 0.5: risk_prob += 0.20
-        if b_wkts_vs_style > 0.5: risk_prob += 0.15
+        if bat_avg_vs_style < 0.4: risk_prob += 0.10
+        if b_career_sr < 0.5: risk_prob += 0.10
+        if b_wkts_vs_style > 0.5: risk_prob += 0.10
         
         # Add Partnership pressure
-        if sb_career_wkts > 0.6: risk_prob += 0.10
-        if sb_career_sr < 0.4: risk_prob += 0.15
+        if sb_career_wkts > 0.6: risk_prob += 0.05
+        if sb_career_sr < 0.4: risk_prob += 0.10
         
         # Add True Lifetime Batsman Pressure
-        if bat_career_avg < 0.4: risk_prob += 0.15
-        if bat_career_sr < 0.5: risk_prob += 0.10
+        if bat_career_avg < 0.4: risk_prob += 0.10
+        if bat_career_sr < 0.5: risk_prob += 0.05
+        
+        # Add NLP Matrix Pressure
+        if v_len > 0.7: risk_prob += 0.15
+        if v_line > 0.7: risk_prob += 0.15
+        if v_shot > 0.7: risk_prob += 0.15
         
         risk_prob = min(risk_prob, 1.0)
         y_val = 1.0 if np.random.rand() < risk_prob else 0.0
@@ -75,14 +88,14 @@ def generate_mock_data(num_samples=100, seq_len=6, input_size=56):
     return X, y
 
 def train_model():
-    print("Initializing DeepSequenceModel Training Pipeline (56D Partnership Logic)...")
-    model = DeepSequenceModel(input_size=56, hidden_size=64, num_layers=2)
+    print("Initializing DeepSequenceModel Training Pipeline (59D Matrix Logic)...")
+    model = DeepSequenceModel(input_size=59, hidden_size=64, num_layers=2)
     
     # Member 1 Task: Focal Loss
     criterion = FocalLoss(alpha=0.8, gamma=2.0)
     optimizer = optim.Adam(model.parameters(), lr=0.01)
     
-    print("Generating 56-Dimensional Dummy T20I Sequence Data (class imbalance: 95% Safe, 5% Out)...")
+    print("Generating 59-Dimensional Dummy T20I Sequence Data (class imbalance: 95% Safe, 5% Out)...")
     X_train, y_train = generate_mock_data(num_samples=200)
     
     epochs = 10

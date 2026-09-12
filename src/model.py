@@ -12,7 +12,7 @@ except Exception as e:
 
 if TORCH_AVAILABLE:
     class DeepSequenceModel(nn.Module):
-        def __init__(self, input_size=56, hidden_size=64, num_layers=2):
+        def __init__(self, input_size=59, hidden_size=64, num_layers=2):
             super(DeepSequenceModel, self).__init__()
             self.hidden_size = hidden_size
             self.num_layers = num_layers
@@ -188,7 +188,7 @@ else:
             return float(min(max(base_risk, 0.0), 1.0))
 
     class DeepSequenceModel:
-        def __init__(self, input_size=56, hidden_size=64, num_layers=2):
+        def __init__(self, input_size=59, hidden_size=64, num_layers=2):
             self.input_size = input_size
             
         def eval(self):
@@ -205,7 +205,7 @@ _mock_model = None
 def get_model():
     global _mock_model
     if _mock_model is None:
-        _mock_model = DeepSequenceModel(input_size=56, hidden_size=64, num_layers=2)
+        _mock_model = DeepSequenceModel(input_size=59, hidden_size=64, num_layers=2)
         
         # Load the trained PyTorch weights if they exist
         if TORCH_AVAILABLE:

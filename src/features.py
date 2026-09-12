@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
+from src.config import LINE_VULN_SCORES, LENGTH_VULN_SCORES, SHOT_VULN_SCORES
 
 try:
     import torch
@@ -171,7 +172,16 @@ class SequencePreprocessor:
             norm_rrr = min(max(rrr / 24.0, 0.0), 1.0)
             norm_ps = min(max(partnership_strength, 0.0), 1.0)
             
-            # Build the 56-Dimensional delivery vector
+            # Fetch vulnerability scores
+            raw_len = delivery.get('length', 'Unknown')
+            raw_line = delivery.get('line', 'Unknown')
+            raw_shot = delivery.get('shot', 'Unknown')
+            
+            v_len = LENGTH_VULN_SCORES.get(raw_len, 0.5)
+            v_line = LINE_VULN_SCORES.get(raw_line, 0.5)
+            v_shot = SHOT_VULN_SCORES.get(raw_shot, 0.5)
+
+            # Build the 59-Dimensional delivery vector
             vector = [run_scaled] + len_vec + line_vec + shot_vec + phase_vec + style_vec + [
                 norm_sr, dismissal_rate, 
                 norm_b_phase_econ, norm_b_type_avg, 
@@ -182,7 +192,8 @@ class SequencePreprocessor:
                 n_tb_runs, n_tb_wkts, n_sb_runs, n_sb_wkts,
                 norm_sb_wkts, norm_sb_econ, norm_sb_avg, norm_sb_sr,
                 norm_bat_career_avg, norm_bat_career_sr,
-                norm_ps, norm_crr, norm_wkts, norm_rrr
+                norm_ps, norm_crr, norm_wkts, norm_rrr,
+                v_len, v_line, v_shot
             ]
             sequence_vectors.append(vector)
             

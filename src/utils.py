@@ -450,3 +450,50 @@ def get_historical_context(batter_name, phase_name, style_name):
         avg = round((runs / dismissals), 2) if dismissals > 0 else float(runs)
         return sr, dismissals, balls, avg
     return 0.0, 0, 0, 0.0
+
+@st.cache_data(ttl=3600)
+def get_player_specific_vulnerability(batsman_name):
+    """
+    Dynamically adjusts the baseline vulnerability of Line, Length, and Shot
+    based on the specific historical profile of the batsman.
+    """
+    from src.config import LINE_VULN_SCORES, LENGTH_VULN_SCORES, SHOT_VULN_SCORES
+    
+    # Get player's career KPIs
+    kpis = get_batsman_kpis(batsman_name)
+    
+    # Create player-specific copies
+    p_line = dict(LINE_VULN_SCORES)
+    p_len = dict(LENGTH_VULN_SCORES)
+    p_shot = dict(SHOT_VULN_SCORES)
+    
+    if not kpis or 'strike_rate' not in kpis:
+        return p_line, p_len, p_shot
+        
+    sr = float(kpis['strike_rate'])
+    runs = int(kpis['runs'])
+    
+    # 1. Adjust based on Career Strike Rate
+    # High SR = lower baseline vulnerability to standard balls
+    if sr > 140.0:
+        p_len['Good Length'] = max(0.1, p_len['Good Length'] - 0.2)
+        p_shot['Drive'] = max(0.1, p_shot['Drive'] - 0.2)
+        p_shot['Loft'] = min(0.9, p_shot.get('Loft', 0.9) - 0.1)
+    elif sr < 120.0:
+        # Struggling players are highly vulnerable to extreme lengths
+        p_len['Yorker'] = min(1.0, p_len['Yorker'] + 0.1)
+        p_len['Short'] = min(1.0, p_len['Short'] + 0.15)
+        p_line['Outside Off'] = min(1.0, p_line['Outside Off'] + 0.15)
+        
+    # 2. Volume Experience Adjustment
+    if runs > 1500:
+        # Veterans are less vulnerable to pressure shots
+        p_shot['Sweep'] = max(0.1, p_shot['Sweep'] - 0.1)
+        p_shot['Pull'] = max(0.1, p_shot['Pull'] - 0.1)
+    
+    # Clean up floating point math
+    for d in (p_line, p_len, p_shot):
+        for k in d:
+            d[k] = round(d[k], 2)
+            
+    return p_line, p_len, p_shot
